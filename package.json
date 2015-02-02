@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "plug-extract",
+  "description": "Auto-reverse engineer Plug.dj javascript",
+  "dependencies": {
+    "concat-stream": "*",
+    "each-async": "*",
+    "js-beautify": "*",
+    "esrefactor": "*",
+    "mkdirp": "*",
+    "plug-modules": "*",
+    "request": "*",
+    "progress": "*"
+  }
+}
