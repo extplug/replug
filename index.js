@@ -1,9 +1,9 @@
 var request = require('request'),
-  jsBeautify = require('js-beautify'),
-  concat = require('concat-stream'),
   jsdom = require('jsdom'),
   ProgressBar = require('progress'),
   esrefactor = require('esrefactor'),
+  esprima = require('esprima'),
+  escodegen = require('escodegen'),
   each = require('each-async'),
   mkdirp = require('mkdirp'),
   path = require('path'),
@@ -13,6 +13,11 @@ var request = require('request'),
 // poor lady's merge
 var merge = function (o, a) {
   Object.keys(a).forEach(function (k) { o[k] = a[k] })
+}
+
+// formatting for escodegen
+var codegenOptions = {
+  format: { indent: { style: '  ' } }
 }
 
 // creates a fake require function that only keeps track of modules,
@@ -44,30 +49,6 @@ function fakeRequire() {
   return require
 }
 
-// beautifies source using js-beautify
-function beautify(src) {
-  return jsBeautify.js_beautify(src, {
-    indent_size: 2
-  , space_after_anon_function: true
-  , brace_style: 'end-expand'
-  })
-}
-
-// like concat-stream, but it throws the result of the given function back onto the stream output
-function concatIntoStream(fn) {
-  var stream = new Transform()
-  stream.buffer = ''
-  stream._transform = function (chunk, enc, cb) {
-    this.buffer += chunk.toString()
-    cb()
-  }
-  stream._flush = function (cb) {
-    this.push(fn(this.buffer))
-    cb()
-  }
-  return stream
-}
-
 // hardcoded because fuck everything
 var outdir = './out/'
 fs.mkdir(outdir, function (e) { /* errors are for pimps */ })
@@ -82,23 +63,6 @@ function fetchAppFile(url) {
   request(url, function (e, res) {
     if (e) throw e
     executeFile('app', res.body)
-  })
-}
-
-// fetches unfancy files that don't need no logins
-function fetchFiles() {
-  request('https://plug.dj/', function (e, res) {
-    var indexUrl = res.body.match(INDEX_JS)[1]
-    var langUrl = res.body.match(LANG_JS)[1]
-
-    request(langUrl)
-      .pipe(concatIntoStream(beautify))
-      .pipe(fs.createWriteStream(path.join(outdir, 'lang.js')))
-
-    request(indexUrl)
-      // this is probably broken now
-      .pipe(concat(executeFile.bind(null, 'index')))
-
   })
 }
 
@@ -180,9 +144,6 @@ function executeFile(outfile, js) {
       if (mapping[dep]) {
         var newName = mapping[dep].split('/').pop().replace(/-/g, '_')
         renames.push({ idx: renameIdx, to: newName })
-        // the next rename index is going to be a few characters further after this rename
-        // is executed. so we account for that immediately
-        renameIdx += newName.length - params[i].length
       }
       var ret = 'var ' + params[i] + ' = require(\'' + dep + '\'); /* ' + (mapping[dep] || 'unknown') + ' */'
       // next rename index is right after this statement
@@ -198,17 +159,21 @@ function executeFile(outfile, js) {
     // output file name
     var file = path.join(outdir, outfile, name + '.js')
 
+    var ast = esprima.parse(fullCode, { range: true })
     if (renames.length) {
-      // lol this is so inefficient, parsing the file again and again and again after every pass
+      var renaming = new esrefactor.Context(ast)
       renames.forEach(function (r) {
-        var renaming = new esrefactor.Context(fullCode)
         var id = renaming.identify(r.idx + 4)
-        fullCode = renaming.rename(id, r.to)
+        if (id) {
+          if (id.identifier) id.identifier.name = r.to
+          if (id.declaration) id.declaration.name = r.to
+          id.references.forEach(function (node) { node.name = r.to })
+        }
       })
     }
 
     // <3
-    var beauty = beautify(fullCode)
+    var beauty = escodegen.generate(ast, codegenOptions)
 
     // wanna check if it exists? nah...
     mkdirp(path.dirname(file), function (e) {

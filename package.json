@@ -1,15 +1,16 @@
 {
-  "private": true,
   "name": "plug-extract",
+  "version": "0.3.0",
   "description": "Auto-reverse engineer Plug.dj javascript",
   "dependencies": {
-    "concat-stream": "*",
     "each-async": "*",
-    "js-beautify": "*",
+    "escodegen": "^1.6.1",
+    "esprima": "^2.0.0",
     "esrefactor": "*",
+    "estraverse": "^1.9.1",
     "mkdirp": "*",
     "plug-modules": "*",
-    "request": "*",
-    "progress": "*"
+    "progress": "*",
+    "request": "*"
   }
 }
