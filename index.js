@@ -3,6 +3,7 @@ var request = require('request'),
   ProgressBar = require('progress'),
   esrefactor = require('esrefactor'),
   esprima = require('esprima'),
+  estraverse = require('estraverse'),
   escodegen = require('escodegen'),
   each = require('each-async'),
   mkdirp = require('mkdirp'),
@@ -171,6 +172,79 @@ function executeFile(outfile, js) {
         }
       })
     }
+
+    // expand mangled function bodies into separate statements
+    var toStatement = function (expr) { return { type: 'ExpressionStatement', expression: expr } }
+    var expandTernary = function (expr) {
+      return {
+        type: 'IfStatement',
+        test: expr.test,
+        consequent: toStatement(expr.consequent),
+        alternate: expr.alternate.type === 'ConditionalExpression' ? expandTernary(expr.alternate) : toStatement(expr.alternate)
+      }
+    }
+    var wrapBlock = function (stmt) { return { type: 'BlockStatement', body: [ stmt ] } }
+    estraverse.traverse(ast, {
+      enter: function (node) {
+        // add braces around branch/loop constructs if they are not yet present
+        if (node.type === 'IfStatement') {
+          if (node.consequent.type !== 'BlockStatement') {
+            node.consequent = wrapBlock(node.consequent)
+          }
+          if (node.alternate && node.alternate !== 'BlockStatement') {
+            node.alternate = wrapBlock(node.alternate)
+          }
+        }
+        else if (node.type === 'ForStatement' ||
+                 node.type === 'WhileStatement') {
+          if (node.body.type !== 'BlockStatement') {
+            node.body = wrapBlock(node.body)
+          }
+        }
+        // expand some expressions
+        if (node.type === 'BlockStatement') {
+          node.body = node.body.reduce(function (newBody, node) {
+            // expand comma-separated expressions on a single line to multiple statements
+            if (node.type === 'ExpressionStatement' &&
+                node.expression.type === 'SequenceExpression') {
+              return newBody.concat(node.expression.expressions.map(toStatement))
+            }
+            // expand comma-separated expressions in a return statement to multiple statements
+            else if (node.type === 'ReturnStatement' &&
+                     node.argument &&
+                     node.argument.type === 'SequenceExpression') {
+              var exprs = node.argument.expressions
+              node.argument = exprs.pop()
+              return newBody.concat(exprs.map(toStatement)).concat([ node ])
+            }
+            // expand ternary ?: statements to if/else statements
+            else if (node.type === 'ExpressionStatement' &&
+                     node.expression.type === 'ConditionalExpression') {
+              return newBody.concat([ expandTernary(node.expression) ])
+            }
+            // expand compressed &&, || expressions into if/else statements
+            else if (node.type === 'ExpressionStatement' &&
+                     node.expression.type === 'LogicalExpression' &&
+                     node.expression.operator === '&&') {
+              return newBody.concat([ {
+                type: 'IfStatement',
+                test: node.expression.left,
+                consequent: toStatement(node.expression.right)
+              } ])
+            }
+            return newBody.concat([ node ])
+          }, [])
+        }
+      },
+      leave: function (node) {
+        // remove braces from if statements inside else statements
+        if (node.type === 'IfStatement' &&
+            node.alternate && node.alternate.type === 'BlockStatement' &&
+            node.alternate.body.length === 1 && node.alternate.body[0].type === 'IfStatement') {
+          node.alternate = node.alternate.body[0]
+        }
+      }
+    })
 
     // <3
     var beauty = escodegen.generate(ast, codegenOptions)
