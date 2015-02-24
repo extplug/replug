@@ -135,7 +135,7 @@ function executeFile(outfile, js) {
     var params = src.match(/\((?:[a-z_$]+,?)*\)/)[0].slice(1, -1).split(',')
     // will keep track of renames that we may want to do after building the source
     var renames = []
-    var prelude = 'define(\'' + name + '\' /* ' + (mapping[name] || 'unknown') + ' */, ' +
+    var prelude = 'define(\'' + name + '\', ' +
                   'function (require, exports, module) {'
     var renameIdx = prelude.length
     // build javascript string of dependency require()s
@@ -146,7 +146,10 @@ function executeFile(outfile, js) {
         var newName = mapping[dep].split('/').pop().replace(/-/g, '_')
         renames.push({ idx: renameIdx, to: newName })
       }
-      var ret = 'var ' + params[i] + ' = require(\'' + dep + '\'); /* ' + (mapping[dep] || 'unknown') + ' */'
+      else if (/^hbs!templates\//.test(dep)) {
+        renames.push({ idx: renameIdx, to: 'template' + dep.split('/').pop() })
+      }
+      var ret = 'var ' + params[i] + ' = require(\'' + dep + '\');'
       // next rename index is right after this statement
       renameIdx += ret.length
       return ret
