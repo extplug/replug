@@ -132,7 +132,7 @@ function executeFile(outfile, js) {
     var src = factory.fn.toString()
     // non-beautified javascript, all parameters are nicely bunched up together
     // so we can get away with this braindead regex
-    var params = src.match(/\((?:[a-z_$]+,?)*\)/)[0].slice(1, -1).split(',')
+    var params = src.match(/\((?:[a-z_$]+,?)*\)/i)[0].slice(1, -1).split(',')
     // will keep track of renames that we may want to do after building the source
     var renames = []
     var prelude = 'define(\'' + name + '\', ' +
