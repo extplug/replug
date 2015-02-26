@@ -3,26 +3,15 @@
 // which figures out decent names for a bunch of stuff
 // then run this on plug.dj while logged in
 
-var modules = require.s.contexts._.defined;
-
-var knownKeys = Object.keys(modules).filter(function (a) {
-  return a.indexOf('plug/') === 0 && // remapped by plug-modules
-    modules[a];                      // non-null
-});
-var unknownKeys = Object.keys(modules).filter(function (a) {
-  return a.indexOf('plug/') === -1 && // remapped by plug-modules
-    a.indexOf('hbs!') === -1       && // templates
-    a.indexOf('extplug/') === -1   && // ExtPlug
-    modules[a]                     && // non-null
-    !modules[a].originalModuleName;   // unknown module, not remapped by plug-modules
-});
+var knownKeys = _.keys(plugModules._nameMapping);
+var unknownKeys = plugModules.getUnknownModules();
 
 var knownModules = knownKeys.map(function (key) {
   return {
     isUnknown: false,
     name: key,
-    original: modules[key].originalModuleName,
-    module: modules[key]
+    original: plugModules.resolveName(key),
+    module: plugModules.require(key)
   };
 });
 var unknownModules = unknownKeys.map(function (key) {
@@ -30,7 +19,7 @@ var unknownModules = unknownKeys.map(function (key) {
     isUnknown: true,
     name: '?',
     original: key,
-    module: modules[key]
+    module: plugModules.require(key)
   };
 });
 
