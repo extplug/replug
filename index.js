@@ -8,8 +8,7 @@ var request = require('request'),
   each = require('each-async'),
   mkdirp = require('mkdirp'),
   path = require('path'),
-  fs = require('fs'),
-  Transform = require('stream').Transform
+  fs = require('fs');
 
 // poor lady's merge
 var merge = function (o, a) {
@@ -92,7 +91,7 @@ function executeFile(outfile, js) {
   r.define('underscore', [], function () { return w._ })
   r.define('jquery', [], function () { return w.jQuery })
 
-  // stub out some jQuery stuff that's used by plug.dj dependencies before it even boots
+  // stub out some jQuery stuff that's used by plug.dj dependencies before it boots
   w.jQuery = function () {}
   w.jQuery.easing = {}
   w.jQuery.event = { special: {} }
@@ -107,14 +106,13 @@ function executeFile(outfile, js) {
   catch (e) {
     // we get an error about `define` not being defined, somehow,
     // but everything basically works anyway, so we just ignore
-    console.log('swallow error', e)
+    console.warn('ignoring error', e)
   }
 
   var allModuleNames = r.list()
 
-  console.log('going to walk through ' + allModuleNames.length + ' modules now, renaming lots of shit,')
-  console.log('and parsing files again after every rename')
-  console.log('this might take a while...')
+  console.log('Found ' + allModuleNames.length + ' require.js modules.')
+  console.log('Now renaming, formatting, and extracting...')
 
   // show a progress bar while we parse a few hundred files a total of tens of thousands of times
   // because all existent refactoring modules are basically shit <3
@@ -176,8 +174,10 @@ function executeFile(outfile, js) {
       })
     }
 
+    // some more formatting!
     // expand mangled function bodies into separate statements
     var toStatement = function (expr) { return { type: 'ExpressionStatement', expression: expr } }
+    // expand ternary expression statements into if(){}else{} blocks
     var expandTernary = function (expr) {
       return {
         type: 'IfStatement',
@@ -240,7 +240,8 @@ function executeFile(outfile, js) {
         }
       },
       leave: function (node) {
-        // remove braces from if statements inside else statements
+        // remove braces from else statements that contain only an if statement
+        // (i.e. else if statements)
         if (node.type === 'IfStatement' &&
             node.alternate && node.alternate.type === 'BlockStatement' &&
             node.alternate.body.length === 1 && node.alternate.body[0].type === 'IfStatement') {
@@ -278,10 +279,9 @@ function executeFile(outfile, js) {
     bar.tick()
   }, function (e) {
     if (e) {
-      console.log('something blew up')
       throw e
     }
-    console.log('there should be a bunch of files in', outfile + '/', 'now')
+    console.log('Extracted into ' + path.join(outdir, outfile))
   })
 }
 
