@@ -8,7 +8,7 @@ var request = require('request'),
   each = require('each-async'),
   mkdirp = require('mkdirp'),
   path = require('path'),
-  fs = require('fs');
+  fs = require('fs')
 
 // poor lady's merge
 var merge = function (o, a) {
@@ -64,6 +64,18 @@ function fetchAppFile(url) {
     if (e) throw e
     executeFile('app', res.body)
   })
+}
+
+function variableNameFor(dep) {
+  var libraryNames = {
+    jquery: '$',
+    backbone: 'Backbone',
+    handlebars: 'Handlebars',
+    underscore: '_'
+  }
+  return dep in libraryNames
+       ? libraryNames[dep]
+       : mapping[dep].split('/').pop().replace(/-/g, '_')
 }
 
 // it's called "executeFile" but it actually gets module definitions from the given js source,
@@ -141,11 +153,11 @@ function executeFile(outfile, js) {
       if (!params[i]) params[i] = '__' + i
       // rename variables according to their module names
       if (mapping[dep]) {
-        var newName = mapping[dep].split('/').pop().replace(/-/g, '_')
-        renames.push({ idx: renameIdx, to: newName })
+        var newName = variableNameFor(dep)
+        renames.push({ idx: renameIdx + 4, to: newName })
       }
       else if (/^hbs!templates\//.test(dep)) {
-        renames.push({ idx: renameIdx, to: 'template' + dep.split('/').pop() })
+        renames.push({ idx: renameIdx + 4, to: 'template' + dep.split('/').pop() })
       }
       var ret = 'var ' + params[i] + ' = require(\'' + dep + '\');'
       // next rename index is right after this statement
@@ -162,11 +174,44 @@ function executeFile(outfile, js) {
     var file = path.join(outdir, outfile, name + '.js')
 
     var ast = esprima.parse(fullCode, { range: true })
+
+    // find and rename original var name of the module return value
+    ;(function () {
+      var body = ast.body
+      if (body.length <= 0 ||
+          body[0].type !== 'ExpressionStatement' ||
+          body[0].expression.type !== 'CallExpression') {
+        return
+      }
+      var defineCall = ast.body[0].expression
+      if (defineCall.callee.name !== 'define') return
+      var defineFactory = defineCall.arguments[1]
+      var defineBody = defineFactory.body.body
+      var lastStatement = defineBody[defineBody.length - 1]
+      if (lastStatement.type !== 'ReturnStatement') return
+      var returnId = lastStatement.argument.type === 'NewExpression'
+                   ? lastStatement.argument.callee
+                   : lastStatement.argument
+      if (returnId.type === 'Identifier') {
+        renames.push({
+          idx: returnId.range[0],
+          to: variableNameFor(name)
+        })
+      }
+    }())
+
     if (renames.length) {
       var renaming = new esrefactor.Context(ast)
       renames.forEach(function (r) {
-        var id = renaming.identify(r.idx + 4)
+        var id = renaming.identify(r.idx)
         if (id) {
+          // rename manually.
+          // esrefactor renames things "in-place" in the source code,
+          // which means that you have to parse the source again every
+          // time you rename a variable. Since we don't need to retain
+          // formatting (it's minified code at this point, after all)
+          // we can manually rename all variables at once without ever
+          // parsing the source again.
           if (id.identifier) id.identifier.name = r.to
           if (id.declaration) id.declaration.name = r.to
           id.references.forEach(function (node) { node.name = r.to })
@@ -290,12 +335,16 @@ var mapping
 fs.readFile(process.argv[3], { encoding: 'utf8' }, function (e, c) {
   if (e) throw e
   // parses module name mappings from the given file
-  mapping = c.split(' ').reduce(function (mapping, str) {
-    str = str.split('=')
-    mapping[str[0]] = str[1]
-    return mapping
-  }, {})
+  mapping = JSON.parse(c)
 
-  // fetches the application js file and does magical fucking shit
-  fetchAppFile(process.argv[2])
+  // fetches the application js file
+  var sourceFile = process.argv[2]
+  if (/^https?:/.test(sourceFile)) {
+    fetchAppFile(sourceFile)
+  }
+  else {
+    fs.readFile(sourceFile, { encoding: 'utf8' }, function (e, c) {
+      executeFile('app', c)
+    })
+  }
 })

@@ -52,8 +52,6 @@ knownModules.concat(unknownModules).forEach(function (mod) {
   fullMapping[mod.original] = mod.name;
 });
 
-var fullMappingString = Object.keys(fullMapping).map(function (name) {
-  return name + '=' + fullMapping[name];
-}).join(' ');
+var fullMappingString = JSON.stringify(fullMapping);
 
 fullMappingString;
