@@ -53,12 +53,6 @@ function fakeRequire() {
 var outdir = './out/'
 fs.mkdir(outdir, function (e) { /* errors are for pimps */ })
 
-// stupid url matching regexes
-var INDEX_JS = /"(.*?cdn\.plug\.dj\/_\/static\/js\/index\..*?\.js)"/
-var CORE_JS = /"(.*?cdn\.plug\.dj\/_\/static\/js\/core\..*?\.js)"/
-var APP_JS = /"(.*?cdn\.plug\.dj\/_\/static\/js\/app\..*?\.js)"/
-var LANG_JS = /src="(.*?cdn\.plug\.dj\/_\/static\/js\/lang\/en\..*?\.js)"/
-
 function fetchAppFile(url) {
   request(url, function (e, res) {
     if (e) throw e
@@ -332,13 +326,14 @@ function executeFile(outfile, js) {
 
 // global lmao
 var mapping
-fs.readFile(process.argv[3], { encoding: 'utf8' }, function (e, c) {
+fs.readFile(process.argv[2], { encoding: 'utf8' }, function (e, c) {
   if (e) throw e
   // parses module name mappings from the given file
-  mapping = JSON.parse(c)
+  var result = JSON.parse(c)
+  mapping = result.mapping
+  sourceFile = result.appUrl
 
   // fetches the application js file
-  var sourceFile = process.argv[2]
   if (/^https?:/.test(sourceFile)) {
     fetchAppFile(sourceFile)
   }
