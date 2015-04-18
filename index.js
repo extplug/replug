@@ -323,10 +323,41 @@ function executeFile(outfile, js) {
             earn: 'currency',
             // contains multiple events for updates to the current room
             roomNameUpdate: 'roomUpdate'
-          }[m[1]] || m[1];
+          }[m[1]] || m[1]
+          // store this in the mapping, so future modules can still
+          // rename it properly.
+          // (earlier modules will not have use new name)
+          mapping[name] = 'plug/server/socket/' + srName
           makeLink(file,
-                   path.join(outdir, outfile,
-                             'plug/server/socket/' + srName + '.js'),
+                   path.join(outdir, outfile, mapping[name] + '.js'),
+                   cb)
+        }
+        // the public js API object is built in a similar manner to
+        // the socket event receiver object, so we use a similar method
+        // to extract it.
+        else if (m = /API\.([a-z0-9A-Z]+) =/.exec(beauty)) {
+          var acName = {
+            getAdmins: 'admins',
+            getAmbassadors: 'ambassadors',
+            getAudience: 'audience',
+            getBannedUsers: 'bannedUsers',
+            getDJ: 'dj',
+            getHistory: 'history',
+            getHost: 'host',
+            getMedia: 'media',
+            getNextMedia: 'nextMedia',
+            getScore: 'score',
+            getStaff: 'staff',
+            getTimeElapsed: 'playTime',
+            getUser: 'users',
+            getWaitList: 'waitlist',
+            moderateForceSkip: 'moderator',
+            sendChat: 'chat',
+            setVolume: 'volume'
+          }[m[1]] || m[1]
+          mapping[name] = 'plug/util/api/' + acName
+          makeLink(file,
+                   path.join(outdir, outfile, mapping[name] + '.js'),
                    cb)
         }
         // the websocket module does not export anything.
