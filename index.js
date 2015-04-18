@@ -294,24 +294,44 @@ function executeFile(outfile, js) {
 
     // wanna check if it exists? nah...
     mkdirp(path.dirname(file), function (e) {
-      if (e) cb(e)
-      else fs.writeFile(file, beauty, function (e) {
+      if (e) return cb(e)
+      var m
+      fs.writeFile(file, beauty, function (e) {
+        if (e) return cb(e)
         // set up symlinks from nicer paths
-        if (!e && mapping[name] && mapping[name].indexOf('plug/') === 0) {
+        if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
           var niceFile = path.join(outdir, outfile, mapping[name] + '.js')
-          mkdirp.sync(path.dirname(niceFile))
-          // you may wanna remove your output dir every time because you can't symlink shit
-          // if a file by the symlink's name already exists
-          try {
-            // cheaty use of path.relative to find link target path
-            fs.symlinkSync(path.relative('/' + path.dirname(niceFile), '/' + file), niceFile)
-          }
-          catch (e) {
-            // could not symlink stuff, who the fuck cares
-          }
+          makeLink(file, niceFile, cb)
         }
-
-        cb(e)
+        // websocket event receiver modules don't export anything,
+        // so they cannot be identified individually by plug-modules.
+        // however, we have accesss to their full source here, so
+        // we can extract them anyway!
+        // socket event receivers set properties on a shared object,
+        // which will actually be require()d by plug.dj source code,
+        // and which can also be identified by plug-modules. this occurs
+        // *after* beautification and renaming, so we can just check
+        // for assignments on an object named "socketReceiver" to find
+        // the separate event receiver modules.
+        else if (m = /socketReceiver\.([a-z0-9A-Z]+) =/.exec(beauty)) {
+          // some of these modules have multiple event receivers, so we
+          // rename them to be a bit more clear.
+          var srName = {
+            // contains a bunch of booth/wait list moderation events
+            modAddDJ: 'modBooth',
+            // contains subscription, XP, and PP events
+            earn: 'currency',
+            // contains multiple events for updates to the current room
+            roomNameUpdate: 'roomUpdate'
+          }[m[1]] || m[1];
+          makeLink(file,
+                   path.join(outdir, outfile,
+                             'plug/server/socket/' + srName + '.js'),
+                   cb)
+        }
+        else {
+          cb()
+        }
       })
     })
 
@@ -321,6 +341,21 @@ function executeFile(outfile, js) {
       throw e
     }
     console.log('Extracted into ' + path.join(outdir, outfile))
+  })
+}
+
+function makeLink(file, niceFile, cb) {
+  mkdirp(path.dirname(niceFile), function (e) {
+    if (e) return cb(e)
+    // you may wanna remove your output dir every time because you can't symlink shit
+    // if a file by the symlink's name already exists
+    try {
+      // cheaty use of path.relative to find link target path
+      fs.symlink(path.relative('/' + path.dirname(niceFile), '/' + file), niceFile, cb)
+    }
+    catch (e) {
+      cb(e)
+    }
   })
 }
 
