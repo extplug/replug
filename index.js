@@ -329,6 +329,14 @@ function executeFile(outfile, js) {
                              'plug/server/socket/' + srName + '.js'),
                    cb)
         }
+        // the websocket module does not export anything.
+        // luckily, it is the only module that sends an AuthTokenAction,
+        // so we can use that instead.
+        else if (beauty.indexOf('new AuthTokenAction') !== -1) {
+          makeLink(file,
+                   path.join(outdir, outfile, 'plug/server/socket.js'),
+                   cb)
+        }
         else {
           cb()
         }
