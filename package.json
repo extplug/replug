@@ -1,6 +1,6 @@
 {
   "name": "plug-extract",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "license": "MIT",
   "description": "Auto-reverse engineer Plug.dj javascript",
   "repository": "PlugLynn/replug",
@@ -10,10 +10,8 @@
     "esprima": "^2.0.0",
     "esrefactor": "*",
     "estraverse": "^1.9.1",
-    "jsdom": "^3.1.2",
     "mkdirp": "*",
     "plug-modules": "3.x",
-    "progress": "*",
     "request": "*"
   }
 }
