@@ -12,7 +12,6 @@
     "esrefactor": "*",
     "estraverse": "^1.9.1",
     "mkdirp": "*",
-    "plug-modules": "3.x",
     "progress": "1.x",
     "request": "*"
   }
