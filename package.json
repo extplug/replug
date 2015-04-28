@@ -5,6 +5,7 @@
   "description": "Auto-reverse engineer Plug.dj javascript",
   "repository": "PlugLynn/replug",
   "dependencies": {
+    "commander": "2.x",
     "each-async": "*",
     "escodegen": "^1.6.1",
     "esprima": "^2.0.0",
@@ -12,6 +13,7 @@
     "estraverse": "^1.9.1",
     "mkdirp": "*",
     "plug-modules": "3.x",
+    "progress": "1.x",
     "request": "*"
   }
 }

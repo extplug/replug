@@ -1,4 +1,6 @@
-var request = require('request'),
+var program = require('commander'),
+  ProgressBar = require('progress'),
+  request = require('request'),
   esrefactor = require('esrefactor'),
   esprima = require('esprima'),
   estraverse = require('estraverse'),
@@ -8,11 +10,11 @@ var request = require('request'),
   path = require('path'),
   fs = require('fs')
 
-// poor lady's merge
-var merge = function (o, a) {
-  Object.keys(a).forEach(function (k) { o[k] = a[k] })
-  return o
-}
+program
+  .usage('[options] [mapping file]')
+  .version('1.1.0')
+  .option('-o, --out [dir]', 'Output directory [out/]')
+  .parse(process.argv)
 
 // formatting for escodegen
 var codegenOptions = {
@@ -20,9 +22,35 @@ var codegenOptions = {
   comment: true
 }
 
+// poor lady's merge
+function merge(o, a) {
+  Object.keys(a).forEach(function (k) { o[k] = a[k] })
+  return o
+}
+
+function progress(text, size) {
+  var bar = new ProgressBar(text + ' [:bar] :percent', {
+    total: size,
+    width: 40,
+    complete: '#',
+    clear: true,
+    callback: function () {
+      console.log(text + ' done')
+    }
+  })
+  return bar
+}
+
 function fetchAppFile(url, cb) {
-  request(url, function (e, res) {
+  request(url,function (e, res) {
     cb(e, res && res.body)
+  })
+  .on('response', function (res) {
+    var size = parseInt(res.headers['content-length'], 10)
+    var bar = progress('downloading app javascript...', size)
+    res.on('data', function (chunk) {
+      bar.tick(chunk.length)
+    })
   })
 }
 
@@ -43,6 +71,7 @@ function variableNameFor(dep, mapping) {
 function parseModules(str) {
   var ast = esprima.parse(str, { range: true })
   var modules = {}
+  process.stdout.write('parsing javascript...')
   estraverse.traverse(ast, {
     enter: function (node) {
       if (node.type === 'CallExpression' &&
@@ -64,6 +93,7 @@ function parseModules(str) {
       }
     }
   })
+  console.log(' done')
 
   return modules
 }
@@ -220,19 +250,25 @@ function cleanAst(ast) {
   return ast
 }
 function cleanModules(modules) {
+  var bar = progress('cleaning module ASTs...', Object.keys(modules).length)
   for (var name in modules) if (modules.hasOwnProperty(name)) {
     cleanAst(modules[name].ast)
+    bar.tick()
   }
   return modules
 }
 
 function remapModuleNames(modules, mapping) {
+  var bar = progress('remapping module names...', Object.keys(modules).length)
   for (var name in modules) if (modules.hasOwnProperty(name)) {
     var ast = modules[name].ast,
       deps = modules[name].deps,
       params = ast.params && ast.params.map(function (p) { return p.name })
 
-    if (!params) continue
+    if (!params) {
+      bar.tick()
+      continue
+    }
     var renames = []
     // build ast of dependency require()s
     var depsAst = deps.map(function (dep, i) {
@@ -298,6 +334,7 @@ function remapModuleNames(modules, mapping) {
     })
 
     processRenames(fullAst, renames)
+    bar.tick()
   }
 
   return modules
@@ -413,7 +450,9 @@ function processRenames(ast, renames) {
 }
 
 function extract(modules, mapping) {
-  each(Object.keys(modules), function (name, i, cb) {
+  var moduleNames = Object.keys(modules)
+  var bar = progress('extracting files...', moduleNames.length)
+  each(moduleNames, function (name, i, cb) {
     var ast = {
       type: 'Program',
       body: [ $statement({
@@ -425,13 +464,16 @@ function extract(modules, mapping) {
         ]
       }) ]
     }
-    outputFile(name, mapping, escodegen.generate(ast, codegenOptions), cb)
+    outputFile(name, mapping, escodegen.generate(ast, codegenOptions), function () {
+      bar.tick()
+      cb()
+    })
   })
   return modules
 }
 
 function outputFile(name, mapping, beauty, cb) {
-  var file = path.join('out/test', name + '.js')
+  var file = path.join(program.out, name + '.js')
   mkdirp(path.dirname(file), function (e) {
     if (e) return cb(e)
     var m
@@ -439,7 +481,7 @@ function outputFile(name, mapping, beauty, cb) {
       if (e) return cb(e)
       // set up symlinks from nicer paths
       if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
-        var niceFile = path.join('out/test', mapping[name] + '.js')
+        var niceFile = path.join(program.out, mapping[name] + '.js')
         makeLink(file, niceFile, cb)
       }
       else {
@@ -465,18 +507,20 @@ function makeLink(file, niceFile, cb) {
 }
 
 function main(mapping, str) {
-  console.log('parsing javascript...')
   var modules = parseModules(str)
-  console.log('cleaning ASTs...')
+  console.log('found', Object.keys(modules).length, 'modules.')
   modules = cleanModules(modules)
   addMappingForUnknownModules(modules, mapping)
-  console.log('remapping module names...')
   modules = remapModuleNames(modules, mapping)
-  console.log('extracting files...')
   extract(modules, mapping)
 }
 
-fs.readFile(process.argv[2], { encoding: 'utf8' }, function (e, c) {
+if (!program.args || program.args.length !== 1) {
+  program.outputHelp()
+  process.exit()
+}
+
+fs.readFile(program.args[0], { encoding: 'utf8' }, function (e, c) {
   if (e) throw e
   // parses module name mappings from the given file
   var result = JSON.parse(c)
