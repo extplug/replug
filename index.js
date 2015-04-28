@@ -16,7 +16,7 @@ var _v
 
 program
   .usage('[options] [mapping file]')
-  .version('1.1.0')
+  .version('1.3.0')
   .option('-o, --out [dir]', 'Output directory [out/]')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
