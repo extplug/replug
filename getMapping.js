@@ -1,11 +1,16 @@
-if (typeof plugModules === 'undefined') {
-  $.getScript('https://rawgit.com/PlugLynn/plug-modules/master/plug-modules.js', getMapping);
+if (require.defined('plug-modules')) {
+  getMapping(require('plug-modules'));
+}
+else if (typeof window.plugModules !== 'undefined') {
+  getMapping(window.plugModules);
 }
 else {
-  getMapping();
+  require([ 'https://rawgit.com/PlugLynn/plug-modules/master/plug-modules.js' ], getMapping);
 }
 
-function getMapping() {
+function getMapping(plugModules) {
+
+  plugModules.run();
 
   var knownKeys = _.keys(plugModules._nameMapping);
   var unknownKeys = plugModules.getUnknownModules();
