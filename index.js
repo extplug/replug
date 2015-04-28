@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 var program = require('commander'),
   ProgressBar = require('progress'),
   request = require('request'),
