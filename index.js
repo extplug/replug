@@ -67,6 +67,8 @@ function variableNameFor(dep, mapping) {
   }
   return dep in libraryNames
        ? libraryNames[dep]
+       : dep.indexOf('hbs!templates/') === 0
+       ? 'template' + dep.split('/').pop()
        : dep in mapping
        ? mapping[dep].split('/').pop().replace(/-/g, '_')
        : dep
