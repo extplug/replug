@@ -12,6 +12,8 @@ var program = require('commander'),
   path = require('path'),
   fs = require('fs')
 
+var _v
+
 program
   .usage('[options] [mapping file]')
   .version('1.1.0')
@@ -526,6 +528,10 @@ function main(mapping, str) {
       fs.writeFileSync(path.join(program.out, 'mapping.json'),
                        JSON.stringify(mapping, null, 2))
     }
+
+    outputFile('version', {}, 'window._v = \'' + _v + '\';', function () {
+      console.log('v' + _v + ' done')
+    })
   })
 }
 
@@ -540,6 +546,8 @@ fs.readFile(program.args[0], { encoding: 'utf8' }, function (e, c) {
   var result = JSON.parse(c)
   var mapping = result.mapping
   var sourceFile = result.appUrl
+  // global!
+  _v = result.version
 
   var cb = function (e, c) {
     if (e) throw e

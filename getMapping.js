@@ -64,8 +64,10 @@ function getMapping(plugModules) {
   // get app.js file url ( it appears in one of the inline <script> tags)
   var js = $('script:not([src])').text();
   var appUrl = /cdn\.plug\.dj\/_\/static\/js\/app\..*?\.js/.exec(js)[0];
+  var version = /_v="(.*?)"/.exec(js)[1];
 
   var result = JSON.stringify({
+    version: version,
     appUrl: 'https://' + appUrl,
     mapping: fullMapping
   });
