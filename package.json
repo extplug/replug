@@ -1,9 +1,10 @@
 {
-  "name": "plug-extract",
+  "name": "replug",
   "version": "1.1.0",
   "license": "MIT",
   "description": "Auto-reverse engineer Plug.dj javascript",
   "repository": "PlugLynn/replug",
+  "bin": "./index.js",
   "dependencies": {
     "commander": "2.x",
     "each-async": "*",
