@@ -1,6 +1,6 @@
 {
   "name": "plug-extract",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "description": "Auto-reverse engineer Plug.dj javascript",
   "repository": "PlugLynn/replug",
