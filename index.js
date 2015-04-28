@@ -16,6 +16,8 @@ program
   .usage('[options] [mapping file]')
   .version('1.1.0')
   .option('-o, --out [dir]', 'Output directory [out/]')
+  .option('--save-source', 'Copy the source javascript to the output directory')
+  .option('--save-mapping', 'Copy the mapping file to the output directory')
   .parse(process.argv)
 
 // formatting for escodegen
@@ -451,7 +453,7 @@ function processRenames(ast, renames) {
   return ast
 }
 
-function extract(modules, mapping) {
+function extract(modules, mapping, cb) {
   var moduleNames = Object.keys(modules)
   var bar = progress('extracting files...', moduleNames.length)
   each(moduleNames, function (name, i, cb) {
@@ -470,7 +472,7 @@ function extract(modules, mapping) {
       bar.tick()
       cb()
     })
-  })
+  }, cb)
   return modules
 }
 
@@ -514,7 +516,15 @@ function main(mapping, str) {
   modules = cleanModules(modules)
   addMappingForUnknownModules(modules, mapping)
   modules = remapModuleNames(modules, mapping)
-  extract(modules, mapping)
+  extract(modules, mapping, function () {
+    if (program.saveSource) {
+      fs.writeFileSync(path.join(program.out, 'source.js'), str)
+    }
+    if (program.saveMapping) {
+      fs.writeFileSync(path.join(program.out, 'mapping.json'),
+                       JSON.stringify(mapping, null, 2))
+    }
+  })
 }
 
 if (!program.args || program.args.length !== 1) {
