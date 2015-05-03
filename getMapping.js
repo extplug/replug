@@ -5,7 +5,7 @@ else if (typeof window.plugModules !== 'undefined') {
   getMapping(window.plugModules);
 }
 else {
-  require([ 'https://rawgit.com/PlugLynn/plug-modules/master/plug-modules.js' ], getMapping);
+  require([ 'https://rawgit.com/ExtPlug/plug-modules/master/plug-modules.js' ], getMapping);
 }
 
 function getMapping(plugModules) {

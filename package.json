@@ -1,9 +1,9 @@
 {
   "name": "replug",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "license": "MIT",
   "description": "Auto-reverse engineer Plug.dj javascript",
-  "repository": "PlugLynn/replug",
+  "repository": "ExtPlug/replug",
   "bin": "./index.js",
   "dependencies": {
     "commander": "2.x",
