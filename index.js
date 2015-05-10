@@ -130,7 +130,7 @@ function $statement(expr) {
   }
 }
 function $block(stmt) {
-  return {
+  return stmt.type === 'BlockStatement' ? stmt : {
     type: 'BlockStatement',
     body: [ stmt ],
     range: stmt.range
@@ -143,10 +143,10 @@ function expandTernary(expr) {
     type: 'IfStatement',
     range: expr.range,
     test: expr.test,
-    consequent: $statement(expr.consequent),
+    consequent: $block($statement(expr.consequent)),
     alternate: expr.alternate.type === 'ConditionalExpression'
       ? expandTernary(expr.alternate)
-      : $statement(expr.alternate)
+      : $block($statement(expr.alternate))
   }
 }
 
@@ -170,7 +170,7 @@ function expandAndOr(node) {
       type: 'IfStatement',
       range: node.range,
       test: node.expression.left,
-      consequent: $statement(node.expression.right)
+      consequent: $block($statement(node.expression.right))
     }
   }
   else if (node.expression.operator === '||') {
@@ -215,8 +215,8 @@ function cleanAst(ast) {
       }
       // turn !0, !1 into true, false
       else if (node.type === 'UnaryExpression' &&
-          node.operator === '!' &&
-          node.argument.type === 'Literal') {
+               node.operator === '!' &&
+               node.argument.type === 'Literal') {
         if (node.argument.value === 0) {
           return { type: 'Literal', value: true, raw: 'true' }
         }
@@ -224,8 +224,18 @@ function cleanAst(ast) {
           return { type: 'Literal', value: false, raw: 'false' }
         }
       }
-      // expand some expressions
-      if (node.type === 'BlockStatement') {
+      // expand ternary ?: statements to if/else statements
+      else if (node.type === 'ExpressionStatement' &&
+               node.expression.type === 'ConditionalExpression') {
+        return expandTernary(node.expression)
+      }
+      // expand compressed &&, || expressions into if/else statements
+      else if (node.type === 'ExpressionStatement' &&
+               node.expression.type === 'LogicalExpression') {
+        return expandAndOr(node)
+      }
+      // expand some expressions into multiple statements
+      else if (node.type === 'BlockStatement') {
         node.body = node.body.reduce(function (newBody, node) {
           // expand comma-separated expressions on a single line to multiple statements
           if (node.type === 'ExpressionStatement' &&
@@ -239,16 +249,6 @@ function cleanAst(ast) {
             var exprs = node.argument.expressions
             node.argument = exprs.pop()
             return newBody.concat(exprs.map($statement)).concat([ node ])
-          }
-          // expand ternary ?: statements to if/else statements
-          else if (node.type === 'ExpressionStatement' &&
-                   node.expression.type === 'ConditionalExpression') {
-            return newBody.concat([ expandTernary(node.expression) ])
-          }
-          // expand compressed &&, || expressions into if/else statements
-          else if (node.type === 'ExpressionStatement' &&
-                   node.expression.type === 'LogicalExpression') {
-            return newBody.concat([ expandAndOr(node) ])
           }
           return newBody.concat([ node ])
         }, [])
