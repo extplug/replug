@@ -203,7 +203,7 @@ function findReturnVar(ast) {
 }
 
 function cleanAst(ast) {
-  estraverse.traverse(ast, {
+  estraverse.replace(ast, {
     enter: function (node) {
       // add braces around branch/loop constructs if they are not yet present
       if (node.type === 'IfStatement') {
@@ -212,6 +212,17 @@ function cleanAst(ast) {
       else if (node.type === 'ForStatement' ||
                node.type === 'WhileStatement') {
         wrapBody(node)
+      }
+      // turn !0, !1 into true, false
+      else if (node.type === 'UnaryExpression' &&
+          node.operator === '!' &&
+          node.argument.type === 'Literal') {
+        if (node.argument.value === 0) {
+          return { type: 'Literal', value: true, raw: 'true' }
+        }
+        else if (node.argument.value === 1) {
+          return { type: 'Literal', value: false, raw: 'false' }
+        }
       }
       // expand some expressions
       if (node.type === 'BlockStatement') {
