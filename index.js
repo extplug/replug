@@ -315,14 +315,14 @@ function remapModuleNames(modules, mapping) {
             type: 'CallExpression',
             callee: $id('require'),
             range: range,
-            arguments: [ dep ]
+            arguments: [ merge(dep, {
+              trailingComments: [ {
+                type: 'Block',
+                value: ' ' + (dep.value in mapping ? mapping[dep.value] : 'Unknown module')
+              } ]
+            }) ]
           }
-        } ],
-        trailingComments: [
-          dep.value in mapping
-            ? { type: 'Line', value: ' ' + mapping[dep.value] }
-            : { type: 'Line', value: ' Unknown module' }
-        ]
+        } ]
       }
     })
 
