@@ -10,13 +10,14 @@ var program = require('commander'),
   each = require('each-async'),
   mkdirp = require('mkdirp'),
   path = require('path'),
-  fs = require('fs')
+  fs = require('fs'),
+  pkg = require('./package.json')
 
 var _v
 
 program
   .usage('[options] [mapping file]')
-  .version('1.3.0')
+  .version(pkg.version)
   .option('-o, --out [dir]', 'Output directory [out/]')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
