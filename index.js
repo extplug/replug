@@ -478,7 +478,12 @@ function extract(modules, mapping, cb) {
         type: 'CallExpression',
         callee: $id('define'),
         arguments: [
-          $literal(name),
+          merge($literal(name), {
+            trailingComments: [ {
+              type: 'Block',
+              value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
+            } ]
+          }),
           modules[name].ast
         ]
       }) ]
