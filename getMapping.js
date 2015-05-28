@@ -1,14 +1,17 @@
-if (require.defined('plug-modules')) {
-  getMapping(require('plug-modules'));
-}
-else if (typeof window.plugModules !== 'undefined') {
-  getMapping(window.plugModules);
-}
-else {
-  require([ 'https://rawgit.com/ExtPlug/plug-modules/master/plug-modules.js' ], getMapping);
+// don't run automatically when called by replug
+if (!window._REPLUG_AUTO) {
+  if (require.defined('plug-modules')) {
+    getMapping(require('plug-modules'));
+  }
+  else if (typeof window.plugModules !== 'undefined') {
+    getMapping(window.plugModules);
+  }
+  else {
+    require([ 'https://rawgit.com/ExtPlug/plug-modules/master/plug-modules.js' ], getMapping);
+  }
 }
 
-function getMapping(plugModules) {
+function getMapping(plugModules, returnOnly) {
 
   plugModules.run();
 
@@ -72,12 +75,14 @@ function getMapping(plugModules) {
     mapping: fullMapping
   });
 
-  var dl = document.createElement('a');
-  dl.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(result));
-  dl.setAttribute('download', 'mapping.json');
-  document.body.appendChild(dl);
-  dl.click();
-  document.body.removeChild(dl);
+  if (!returnOnly) {
+    var dl = document.createElement('a');
+    dl.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(result));
+    dl.setAttribute('download', 'mapping.json');
+    document.body.appendChild(dl);
+    dl.click();
+    document.body.removeChild(dl);
+  }
 
   return result;
 

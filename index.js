@@ -18,9 +18,13 @@ var _v
 program
   .usage('[options] [mapping file]')
   .version(pkg.version)
+  .option('-m, --mapping [file]', 'File containing the mapping JSON')
   .option('-o, --out [dir]', 'Output directory [out/]')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
+  .option('-a, --auto', 'Generate the mapping file. Requires --email and --password')
+  .option('-e, --email [email]', 'Your plug.dj user email')
+  .option('-p, --password [password]', 'Your plug.dj user password')
   .parse(process.argv)
 
 // formatting for escodegen
@@ -28,6 +32,12 @@ var codegenOptions = {
   format: { indent: { style: '  ' } },
   comment: true
 }
+
+var jar = request.jar()
+var r = request.defaults({
+  headers: { 'user-agent': 'replug' },
+  jar: jar
+})
 
 // poor lady's merge
 function merge(o, a) {
@@ -46,6 +56,25 @@ function progress(text, size) {
     }
   })
   return bar
+}
+
+function plugLogin(email, password, cb) {
+  r('https://plug.dj/', function (e, res, body) {
+    if (e) cb(e)
+    else {
+      var match = /csrf\s?=\s?"(.*?)"/.exec(body)
+      var csrf = match[1]
+      r.post('https://plug.dj/_/auth/login', {
+        json: true,
+        body: { csrf: csrf, email: email, password: password }
+      }, function (e, res, body) {
+        if (e) cb(e)
+        else {
+          cb(null, body)
+        }
+      })
+    }
+  })
 }
 
 function fetchAppFile(url, cb) {
@@ -552,23 +581,40 @@ function main(mapping, str) {
   })
 }
 
-if (!program.args || program.args.length !== 1) {
+if (!program.auto && !program.mapping &&
+    (!program.args || program.args.length !== 1)) {
   program.outputHelp()
   process.exit()
 }
 
-fs.readFile(program.args[0], { encoding: 'utf8' }, function (e, c) {
+if (program.auto) {
+  process.stdout.write('logging in to create mapping...')
+  plugLogin(program.email, program.password, function (e, body) {
+    if (e) throw e
+    console.log('  done')
+    process.stdout.write('generating mapping...')
+    require('./lib/create-mapping')(jar, function (e, mapping) {
+      console.log('  done')
+      onMappingString(e, mapping)
+    })
+  })
+}
+else {
+  fs.readFile(program.mapping || program.args[0], 'utf-8', onMappingString)
+}
+
+function onMappingString(e, mappingString) {
   if (e) throw e
   // parses module name mappings from the given file
-  var result = JSON.parse(c)
+  var result = JSON.parse(mappingString)
   var mapping = result.mapping
   var sourceFile = result.appUrl
   // global!
   _v = result.version
 
-  var cb = function (e, c) {
+  var cb = function (e, source) {
     if (e) throw e
-    main(mapping, c)
+    main(mapping, source)
   }
   // fetches the application js file
   if (/^https?:/.test(sourceFile)) {
@@ -577,4 +623,4 @@ fs.readFile(program.args[0], { encoding: 'utf8' }, function (e, c) {
   else {
     fs.readFile(sourceFile, { encoding: 'utf8' }, cb)
   }
-})
+}

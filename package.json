@@ -12,7 +12,9 @@
     "esprima": "^2.0.0",
     "esrefactor": "*",
     "estraverse": "^1.9.1",
+    "jsdom": "3.x",
     "mkdirp": "*",
+    "plug-modules": ">=4.0.0",
     "progress": "1.x",
     "request": "*"
   }
