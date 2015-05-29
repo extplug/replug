@@ -11,7 +11,8 @@ var program = require('commander'),
   mkdirp = require('mkdirp'),
   path = require('path'),
   fs = require('fs'),
-  pkg = require('./package.json')
+  pkg = require('./package.json'),
+  plugLogin = require('plug-login')
 
 var _v
 
@@ -33,11 +34,9 @@ var codegenOptions = {
   comment: true
 }
 
-var jar = request.jar()
-var r = request.defaults({
-  headers: { 'user-agent': 'replug' },
-  jar: jar
-})
+var requestOpts = {
+  headers: { 'user-agent': 'replug' }
+}
 
 // poor lady's merge
 function merge(o, a) {
@@ -56,25 +55,6 @@ function progress(text, size) {
     }
   })
   return bar
-}
-
-function plugLogin(email, password, cb) {
-  r('https://plug.dj/', function (e, res, body) {
-    if (e) cb(e)
-    else {
-      var match = /csrf\s?=\s?"(.*?)"/.exec(body)
-      var csrf = match[1]
-      r.post('https://plug.dj/_/auth/login', {
-        json: true,
-        body: { csrf: csrf, email: email, password: password }
-      }, function (e, res, body) {
-        if (e) cb(e)
-        else {
-          cb(null, body)
-        }
-      })
-    }
-  })
 }
 
 function fetchAppFile(url, cb) {
@@ -589,11 +569,11 @@ if (!program.auto && !program.mapping &&
 
 if (program.auto) {
   process.stdout.write('logging in to create mapping...')
-  plugLogin(program.email, program.password, function (e, body) {
+  plugLogin(program.email, program.password, requestOpts, function (e, result) {
     if (e) throw e
-    console.log('  done')
+    console.log('  logged in as', result.body.data[0].username)
     process.stdout.write('generating mapping...')
-    require('./lib/create-mapping')(jar, function (e, mapping) {
+    require('./lib/create-mapping')(result.jar, function (e, mapping) {
       console.log('  done')
       onMappingString(e, mapping)
     })
