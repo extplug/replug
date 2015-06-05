@@ -12,7 +12,8 @@ var program = require('commander'),
   path = require('path'),
   fs = require('fs'),
   pkg = require('./package.json'),
-  plugLogin = require('plug-login')
+  plugLogin = require('plug-login'),
+  $ = require('./lib/ast')
 
 var _v
 
@@ -115,63 +116,31 @@ function parseModules(str) {
 
   return modules
 }
-
-function $id(name) {
-  return $smallRange({ type: 'Identifier', name: name })
-}
-function $literal(value) { return { type: 'Literal', value: value } }
-function $comment(ast, type, value) {
-  ast.trailingComments = ast.trailingComments || []
-  ast.trailingComments.push({
-    type: type,
-    value: value
-  })
-  return ast
-}
-function $largeRange(ast) { return merge(ast, { range: [ 0, Infinity ] }) }
-function $smallRange(ast, n) {
-  return merge(ast, { range: [ n || 0, n || 0 ] })
-}
-function $statement(expr) {
-  return {
-    type: 'ExpressionStatement',
-    expression: expr,
-    range: expr.range
-  }
-}
-function $block(stmt) {
-  return stmt.type === 'BlockStatement' ? stmt : {
-    type: 'BlockStatement',
-    body: [ stmt ],
-    range: stmt.range
-  }
-}
-
 // expand ternary expression statements into if(){}else{} blocks
 function expandTernary(expr) {
   return {
     type: 'IfStatement',
     range: expr.range,
     test: expr.test,
-    consequent: $block($statement(expr.consequent)),
+    consequent: $.block($.statement(expr.consequent)),
     alternate: expr.alternate.type === 'ConditionalExpression'
       ? expandTernary(expr.alternate)
-      : $block($statement(expr.alternate))
+      : $.block($.statement(expr.alternate))
   }
 }
 
 function wrapIfBranches(node) {
   if (node.consequent.type !== 'BlockStatement') {
-    node.consequent = $block(node.consequent)
+    node.consequent = $.block(node.consequent)
   }
   if (node.alternate && node.alternate !== 'BlockStatement') {
-    node.alternate = $block(node.alternate)
+    node.alternate = $.block(node.alternate)
   }
   return node
 }
 function wrapBody(node) {
   if (node.body.type !== 'BlockStatement') {
-    node.body = $block(node.body)
+    node.body = $.block(node.body)
   }
 }
 function expandAndOr(node) {
@@ -180,7 +149,7 @@ function expandAndOr(node) {
       type: 'IfStatement',
       range: node.range,
       test: node.expression.left,
-      consequent: $block($statement(node.expression.right))
+      consequent: $.block($.statement(node.expression.right))
     }
   }
   else if (node.expression.operator === '||') {
@@ -194,7 +163,7 @@ function expandAndOr(node) {
         argument: node.expression.left,
         prefix: true
       },
-      consequent: $statement(node.expression.right)
+      consequent: $.statement(node.expression.right)
     }
   }
   return node
@@ -250,7 +219,7 @@ function cleanAst(ast) {
           // expand comma-separated expressions on a single line to multiple statements
           if (node.type === 'ExpressionStatement' &&
               node.expression.type === 'SequenceExpression') {
-            return newBody.concat(node.expression.expressions.map($statement))
+            return newBody.concat(node.expression.expressions.map($.statement))
           }
           // expand complex ternary conditionals in return statements to
           // if(){}else{} statements
@@ -265,12 +234,12 @@ function cleanAst(ast) {
               range: node.range,
               type: 'IfStatement',
               test: node.argument.test,
-              consequent: $block({
+              consequent: $.block({
                 range: node.argument.consequent.range,
                 type: 'ReturnStatement',
                 argument: node.argument.consequent
               }),
-              alternate: $block({
+              alternate: $.block({
                 range: node.argument.alternate.range,
                 type: 'ReturnStatement',
                 argument: node.argument.alternate
@@ -283,7 +252,7 @@ function cleanAst(ast) {
                    node.argument.type === 'SequenceExpression') {
             var exprs = node.argument.expressions
             node.argument = exprs.pop()
-            return newBody.concat(exprs.map($statement)).concat([ node ])
+            return newBody.concat(exprs.map($.statement)).concat([ node ])
           }
           return newBody.concat([ node ])
         }, [])
@@ -344,11 +313,11 @@ function remapModuleNames(modules, mapping) {
         range: range,
         declarations: [ {
           type: 'VariableDeclarator',
-          id: merge($id(params[i]), { range: dep.range }),
+          id: merge($.id(params[i]), { range: dep.range }),
           range: range,
           init: {
             type: 'CallExpression',
-            callee: $id('require'),
+            callee: $.id('require'),
             range: range,
             arguments: [ merge(dep, {
               trailingComments: [ {
@@ -365,9 +334,9 @@ function remapModuleNames(modules, mapping) {
     // to the factory body
     ast.body.body = depsAst.concat(ast.body.body)
     ast.params = [
-      $id('require'),
-      $id('exports'),
-      $id('module')
+      $.id('require'),
+      $.id('exports'),
+      $.id('module')
     ]
 
     var returnVar = findReturnVar(ast.body)
@@ -379,9 +348,9 @@ function remapModuleNames(modules, mapping) {
     }
 
     // wrap the ast in a Program node so esrefactor accepts it
-    var fullAst = $largeRange({
+    var fullAst = $.largeRange({
       type: 'Program',
-      body: [ $largeRange({
+      body: [ $.largeRange({
         type: 'ExpressionStatement',
         expression: ast
       }) ]
@@ -509,11 +478,11 @@ function extract(modules, mapping, cb) {
   each(moduleNames, function (name, i, cb) {
     var ast = {
       type: 'Program',
-      body: [ $statement({
+      body: [ $.statement({
         type: 'CallExpression',
-        callee: $id('define'),
+        callee: $.id('define'),
         arguments: [
-          merge($literal(name), {
+          merge($.literal(name), {
             trailingComments: [ {
               type: 'Block',
               value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
