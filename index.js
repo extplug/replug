@@ -252,6 +252,31 @@ function cleanAst(ast) {
               node.expression.type === 'SequenceExpression') {
             return newBody.concat(node.expression.expressions.map($statement))
           }
+          // expand complex ternary conditionals in return statements to
+          // if(){}else{} statements
+          else if (node.type === 'ReturnStatement' &&
+                   node.argument &&
+                   node.argument.type === 'ConditionalExpression' &&
+                   (node.argument.consequent.type === 'ConditionalExpression' ||
+                    node.argument.consequent.type === 'SequenceExpression' ||
+                    node.argument.alternate.type === 'ConditionalExpression' ||
+                    node.argument.alternate.type === 'SequenceExpression')) {
+            return newBody.concat({
+              range: node.range,
+              type: 'IfStatement',
+              test: node.argument.test,
+              consequent: $block({
+                range: node.argument.consequent.range,
+                type: 'ReturnStatement',
+                argument: node.argument.consequent
+              }),
+              alternate: $block({
+                range: node.argument.alternate.range,
+                type: 'ReturnStatement',
+                argument: node.argument.alternate
+              })
+            })
+          }
           // expand comma-separated expressions in a return statement to multiple statements
           else if (node.type === 'ReturnStatement' &&
                    node.argument &&
