@@ -6,8 +6,8 @@
   "repository": "ExtPlug/replug",
   "bin": "./index.js",
   "dependencies": {
+    "bluebird": "^2.9.30",
     "commander": "2.x",
-    "each-async": "*",
     "escodegen": "^1.6.1",
     "esprima": "^2.0.0",
     "esrefactor": "*",

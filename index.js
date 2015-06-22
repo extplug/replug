@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
-var program = require('commander'),
+var Promise = require('bluebird'),
+  program = require('commander'),
   ProgressBar = require('progress'),
   request = require('request'),
   esrefactor = require('esrefactor'),
   esprima = require('esprima'),
   estraverse = require('estraverse'),
   escodegen = require('escodegen'),
-  each = require('each-async'),
-  mkdirp = require('mkdirp'),
+  mkdirp = Promise.promisify(require('mkdirp')),
   path = require('path'),
-  fs = require('fs'),
+  fs = Promise.promisifyAll(require('fs')),
   pkg = require('./package.json'),
-  plugLogin = require('plug-login'),
+  plugLogin = Promise.promisify(require('plug-login')),
   $ = require('./lib/ast'),
   cleanAst = require('./lib/clean-ast')
 
@@ -59,15 +59,18 @@ function progress(text, size) {
   return bar
 }
 
-function fetchAppFile(url, cb) {
-  request(url,function (e, res) {
-    cb(e, res && res.body)
-  })
-  .on('response', function (res) {
-    var size = parseInt(res.headers['content-length'], 10)
-    var bar = progress('downloading app javascript...', size)
-    res.on('data', function (chunk) {
-      bar.tick(chunk.length)
+function fetchAppFile(url) {
+  return new Promise(function (resolve, reject) {
+    request(url, function (e, res) {
+      if (e) reject(e)
+      else   resolve(res && res.body)
+    })
+    .on('response', function (res) {
+      var size = parseInt(res.headers['content-length'], 10)
+      var bar = progress('downloading app javascript...', size)
+      res.on('data', function (chunk) {
+        bar.tick(chunk.length)
+      })
     })
   })
 }
@@ -330,10 +333,10 @@ function processRenames(ast, renames) {
   return ast
 }
 
-function extract(modules, mapping, cb) {
+function extract(modules, mapping) {
   var moduleNames = Object.keys(modules)
   var bar = progress('extracting files...', moduleNames.length)
-  each(moduleNames, function (name, i, cb) {
+  return Promise.each(moduleNames, function (name) {
     var ast = {
       type: 'Program',
       body: [ $.statement({
@@ -350,67 +353,53 @@ function extract(modules, mapping, cb) {
         ]
       }) ]
     }
-    outputFile(name, mapping, escodegen.generate(ast, codegenOptions), function () {
-      bar.tick()
-      cb()
-    })
-  }, cb)
-  return modules
+    return outputFile(name, mapping, escodegen.generate(ast, codegenOptions))
+      .tap(bar.tick.bind(bar))
+  }).return(modules)
 }
 
-function outputFile(name, mapping, beauty, cb) {
+function outputFile(name, mapping, beauty) {
   var file = path.join(program.out, name + '.js')
-  mkdirp(path.dirname(file), function (e) {
-    if (e) return cb(e)
-    var m
-    fs.writeFile(file, beauty, function (e) {
-      if (e) return cb(e)
+  return mkdirp(path.dirname(file))
+    .then(function () {
+      return fs.writeFileAsync(file, beauty)
+    })
+    .then(function () {
       // set up symlinks from nicer paths
       if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
         var niceFile = path.join(program.out, mapping[name] + '.js')
-        makeLink(file, niceFile, cb)
-      }
-      else {
-        cb()
+        return makeLink(file, niceFile)
       }
     })
-  })
 }
 
-function makeLink(file, niceFile, cb) {
-  mkdirp(path.dirname(niceFile), function (e) {
-    if (e) return cb(e)
-    // you may wanna remove your output dir every time because you can't symlink shit
-    // if a file by the symlink's name already exists
-    try {
-      // cheaty use of path.relative to find link target path
-      fs.symlink(path.relative('/' + path.dirname(niceFile), '/' + file), niceFile, cb)
-    }
-    catch (e) {
-      cb(e)
-    }
-  })
+function makeLink(file, niceFile) {
+  // cheaty use of path.relative to find link target path
+  var linkTarget = path.relative('/' + path.dirname(niceFile), '/' + file)
+  return mkdirp(path.dirname(niceFile))
+    .then(function () { return fs.symlinkAsync(linkTarget, niceFile) })
 }
 
-function main(mapping, str) {
+function run(mapping, str) {
   var modules = parseModules(str)
   console.log('found', Object.keys(modules).length, 'modules.')
   modules = cleanModules(modules)
   addMappingForUnknownModules(modules, mapping)
   modules = remapModuleNames(modules, mapping)
-  extract(modules, mapping, function () {
-    if (program.saveSource) {
-      fs.writeFileSync(path.join(program.out, 'source.js'), str)
-    }
-    if (program.saveMapping) {
-      fs.writeFileSync(path.join(program.out, 'mapping.json'),
-                       JSON.stringify(mapping, null, 2))
-    }
-
-    outputFile('version', {}, 'window._v = \'' + _v + '\';', function () {
-      console.log('v' + _v + ' done')
+  extract(modules, mapping)
+    .tap(function () {
+      return program.saveSource &&
+        fs.writeFileAsync(path.join(program.out, 'source.js'), str)
     })
-  })
+    .tap(function () {
+      return program.saveMapping &&
+        fs.writeFileAsync(path.join(program.out, 'mapping.json'),
+                          JSON.stringify(mapping, null, 2))
+    })
+    .then(function () {
+      return outputFile('version', {}, 'window._v = \'' + _v + '\';')
+    })
+    .then(function () { console.log('v' + _v + ' done') })
 }
 
 if (!program.auto && !program.mapping &&
@@ -419,40 +408,35 @@ if (!program.auto && !program.mapping &&
   process.exit()
 }
 
+var mappingString
 if (program.auto) {
   process.stdout.write('logging in to create mapping...')
-  plugLogin(program.email, program.password, requestOpts, function (e, result) {
-    if (e) throw e
-    console.log('  logged in as', result.body.data[0].username)
-    process.stdout.write('generating mapping...')
-    require('./lib/create-mapping')(result.jar, function (e, mapping) {
-      console.log('  done')
-      onMappingString(e, mapping)
+  mappingString = plugLogin(program.email, program.password, requestOpts)
+    .then(function (result) {
+      console.log('  logged in as', result.body.data[0].username)
+      process.stdout.write('generating mapping...')
+      return require('./lib/create-mapping')(result.jar)
     })
-  })
 }
 else {
-  fs.readFile(program.mapping || program.args[0], 'utf-8', onMappingString)
+  mappingString = fs.readFileAsync(program.mapping || program.args[0], 'utf-8')
 }
 
-function onMappingString(e, mappingString) {
-  if (e) throw e
-  // parses module name mappings from the given file
-  var result = JSON.parse(mappingString)
-  var mapping = result.mapping
-  var sourceFile = result.appUrl
-  // global!
-  _v = result.version
+mappingString
+  .then(JSON.parse)
+  .then(function (result) {
+    var mapping = result.mapping
+    var sourceFile = result.appUrl
+    // global!
+    _v = result.version
 
-  var cb = function (e, source) {
-    if (e) throw e
-    main(mapping, source)
-  }
-  // fetches the application js file
-  if (/^https?:/.test(sourceFile)) {
-    fetchAppFile(sourceFile, cb)
-  }
-  else {
-    fs.readFile(sourceFile, { encoding: 'utf8' }, cb)
-  }
-}
+    return Promise.props({
+      mapping: mapping,
+      src: /^https?:/.test(sourceFile)? fetchAppFile(sourceFile)
+           : /* otherwise */            fs.readFileAsync(sourceFile, 'utf-8')
+    })
+  })
+  .then(function (o) {
+    return run(o.mapping, o.src)
+  })
+  .catch(function (e) { throw e })
