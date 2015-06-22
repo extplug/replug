@@ -19,13 +19,13 @@ var Promise = require('bluebird'),
 var _v
 
 program
-  .usage('[options] [mapping file]')
+  .usage('[options]')
   .version(pkg.version)
-  .option('-m, --mapping [file]', 'File containing the mapping JSON')
+  .option('-m, --mapping [file]', 'File containing the mapping JSON ' +
+            '(optional, it\'s auto-generated if no file is given)')
   .option('-o, --out [dir]', 'Output directory [out/]')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
-  .option('-a, --auto', 'Generate the mapping file automatically')
   .parse(process.argv)
 
 // formatting for escodegen
@@ -400,14 +400,11 @@ function run(mapping, str) {
     .then(function () { console.log('v' + _v + ' done') })
 }
 
-if (!program.auto && !program.mapping &&
-    (!program.args || program.args.length !== 1)) {
-  program.outputHelp()
-  process.exit()
-}
-
 var mappingString
-if (program.auto) {
+if (program.mapping) {
+  mappingString = fs.readFileAsync(program.mapping, 'utf-8')
+}
+else {
   process.stdout.write('logging in to create mapping...')
   mappingString = plugLogin(requestOpts)
     .then(function (result) {
@@ -415,9 +412,6 @@ if (program.auto) {
       process.stdout.write('generating mapping...')
       return require('./lib/create-mapping')(result.jar)
     })
-}
-else {
-  mappingString = fs.readFileAsync(program.mapping || program.args[0], 'utf-8')
 }
 
 mappingString

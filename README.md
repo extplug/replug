@@ -23,13 +23,12 @@ Or for source:
 
     Options:
 
-      -h, --help                 output usage information
-      -V, --version              output the version number
-      -m, --mapping [file]       File containing the mapping JSON
-      -o, --out [dir]            Output directory [out/]
-      --save-source              Copy the source javascript to the output directory
-      --save-mapping             Copy the mapping file to the output directory
-      -a, --auto                 Generate the mapping file automatically
+      -h, --help            output usage information
+      -V, --version         output the version number
+      -m, --mapping [file]  File containing the mapping JSON (optional, it's auto-generated if no file is given)
+      -o, --out [dir]       Output directory [out/]
+      --save-source         Copy the source javascript to the output directory
+      --save-mapping        Copy the mapping file to the output directory
 
 ### easy way
 
@@ -39,7 +38,7 @@ Dumps output in `out/`, and doesn't store the original JavaScript source or the
 mapping file.
 
 ```
-replug --auto
+replug
 ```
 
 **Full:**
@@ -48,14 +47,14 @@ Outputs in `output-directory/`, and stores the original JavaScript source in
 `source.js`, and the mapping file as `mapping.json`.
 
 ```
-replug --auto --out output-directory \
+replug --out output-directory \
   --save-source --save-mapping
 ```
 
-The `--auto` flag runs `plug-modules` automatically to remap plug.dj's
-obfuscated module names to readable module names. It does that by essentially
-fully loading and booting plug.dj, much like the below old-fashioned way but
-headless.
+This way runs [`plug-modules`](https://github.com/ExtPlug/plug-modules)
+automatically to remap plug.dj's obfuscated module names to readable module
+names. It does that by essentially fully loading and booting plug.dj, much like
+the below old-fashioned way but headless.
 
 ### harder, partly browser-based, but still pretty solid way:
 
