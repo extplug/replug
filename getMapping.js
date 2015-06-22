@@ -64,14 +64,23 @@ function getMapping(plugModules, returnOnly) {
     fullMapping[mod.original] = mod.name;
   });
 
-  // get app.js file url ( it appears in one of the inline <script> tags)
+  var scriptSources = $('script[src^="https://cdn.plug"]').map(function (e) {
+    return this.src;
+  });
+
+  // get plug.dj version (it appears in one of the inline <script> tags)
   var js = $('script:not([src])').text();
-  var appUrl = /cdn\.plug\.dj\/_\/static\/js\/app\..*?\.js/.exec(js)[0];
   var version = /_v="(.*?)"/.exec(js)[1];
+
+  var appUrl = find(scriptSources, contains('js/app'));
+  var langUrl = find(scriptSources, contains('js/lang/'));
+  var avatarsUrl = find(scriptSources, contains('js/avatars'));
 
   var result = JSON.stringify({
     version: version,
-    appUrl: 'https://' + appUrl,
+    appUrl: appUrl,
+    langUrl: langUrl,
+    avatarsUrl: avatarsUrl,
     mapping: fullMapping
   });
 
@@ -86,4 +95,11 @@ function getMapping(plugModules, returnOnly) {
 
   return result;
 
+  function find(arr, fn) {
+    for (var i = 0, l = arr.length; i < l; i++)
+      if (fn(arr[i])) return arr[i]
+  }
+  function contains(str) {
+    return function (src) { return src.indexOf(str) > 0 }
+  }
 }
