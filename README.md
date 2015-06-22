@@ -29,9 +29,7 @@ Or for source:
       -o, --out [dir]            Output directory [out/]
       --save-source              Copy the source javascript to the output directory
       --save-mapping             Copy the mapping file to the output directory
-      -a, --auto                 Generate the mapping file. Requires --email and --password
-      -e, --email [email]        Your plug.dj user email
-      -p, --password [password]  Your plug.dj user password
+      -a, --auto                 Generate the mapping file automatically
 
 ### easy way
 
@@ -41,7 +39,7 @@ Dumps output in `out/`, and doesn't store the original JavaScript source or the
 mapping file.
 
 ```
-replug --auto --email my-plug-email@example.com --password hunter2
+replug --auto
 ```
 
 **Full:**
@@ -51,8 +49,7 @@ Outputs in `output-directory/`, and stores the original JavaScript source in
 
 ```
 replug --auto --out output-directory \
-  --save-source --save-mapping \
-  --email my-plug-email@example.com --password hunter2
+  --save-source --save-mapping
 ```
 
 The `--auto` flag runs `plug-modules` automatically to remap plug.dj's
