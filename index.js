@@ -12,7 +12,7 @@ var Promise = require('bluebird'),
   path = require('path'),
   fs = Promise.promisifyAll(require('fs')),
   pkg = require('./package.json'),
-  plugLogin = Promise.promisify(require('plug-login')),
+  plugLogin = Promise.promisify(require('plug-login').guest),
   $ = require('./lib/ast'),
   cleanAst = require('./lib/clean-ast')
 
@@ -25,9 +25,7 @@ program
   .option('-o, --out [dir]', 'Output directory [out/]')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
-  .option('-a, --auto', 'Generate the mapping file. Requires --email and --password')
-  .option('-e, --email [email]', 'Your plug.dj user email')
-  .option('-p, --password [password]', 'Your plug.dj user password')
+  .option('-a, --auto', 'Generate the mapping file automatically')
   .parse(process.argv)
 
 // formatting for escodegen
@@ -411,9 +409,9 @@ if (!program.auto && !program.mapping &&
 var mappingString
 if (program.auto) {
   process.stdout.write('logging in to create mapping...')
-  mappingString = plugLogin(program.email, program.password, requestOpts)
+  mappingString = plugLogin(requestOpts)
     .then(function (result) {
-      console.log('  logged in as', result.body.data[0].username)
+      console.log('  logged in to plug.dj')
       process.stdout.write('generating mapping...')
       return require('./lib/create-mapping')(result.jar)
     })
