@@ -27,6 +27,7 @@ Or for source:
       -V, --version         output the version number
       -m, --mapping [file]  File containing the mapping JSON (optional, it's auto-generated if no file is given)
       -o, --out [dir]       Output directory [out/]
+      -c, --copy            Copy deobfuscated files instead of symlinking (nice for Windows)
       --save-source         Copy the source javascript to the output directory
       --save-mapping        Copy the mapping file to the output directory
 
@@ -51,10 +52,14 @@ replug --out output-directory \
   --save-source --save-mapping
 ```
 
-This way runs [`plug-modules`](https://github.com/ExtPlug/plug-modules)
+The easy way runs [`plug-modules`](https://github.com/ExtPlug/plug-modules)
 automatically to remap plug.dj's obfuscated module names to readable module
 names. It does that by essentially fully loading and booting plug.dj, much like
 the below old-fashioned way but headless.
+
+Remapped module names are symlinked to the source files. If you're on Windows
+or don't like symlinks, pass the `--copy` option which will output the full
+source files in both the original and the remapped paths.
 
 ### harder, partly browser-based, but still pretty solid way:
 
