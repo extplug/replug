@@ -23,7 +23,7 @@ program
   .version(pkg.version)
   .option('-m, --mapping [file]', 'File containing the mapping JSON ' +
             '(optional, it\'s auto-generated if no file is given)')
-  .option('-o, --out [dir]', 'Output directory [out/]')
+  .option('-o, --out [dir]', 'Output directory [out/]', 'out/')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
   .parse(process.argv)
