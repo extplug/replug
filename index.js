@@ -24,6 +24,7 @@ program
   .option('-m, --mapping [file]', 'File containing the mapping JSON ' +
             '(optional, it\'s auto-generated if no file is given)')
   .option('-o, --out [dir]', 'Output directory [out/]', 'out/')
+  .option('-c, --copy', 'Copy deobfuscated files instead of symlinking (nice for Windows)')
   .option('--save-source', 'Copy the source javascript to the output directory')
   .option('--save-mapping', 'Copy the mapping file to the output directory')
   .parse(process.argv)
@@ -356,19 +357,21 @@ function extract(modules, mapping) {
   }).return(modules)
 }
 
+function writeFile(name, content) {
+  return mkdirp(path.dirname(name))
+    .then(function () { return fs.writeFileAsync(name, content) })
+}
+
 function outputFile(name, mapping, beauty) {
   var file = path.join(program.out, name + '.js')
-  return mkdirp(path.dirname(file))
-    .then(function () {
-      return fs.writeFileAsync(file, beauty)
-    })
-    .then(function () {
-      // set up symlinks from nicer paths
-      if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
-        var niceFile = path.join(program.out, mapping[name] + '.js')
-        return makeLink(file, niceFile)
-      }
-    })
+  return writeFile(file, beauty).then(function () {
+    // set up symlinks from nicer paths
+    if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
+      var niceFile = path.join(program.out, mapping[name] + '.js')
+      return program.copy?   writeFile(niceFile, beauty)
+           : /* otherwise */ makeLink(file, niceFile)
+    }
+  })
 }
 
 function makeLink(file, niceFile) {
