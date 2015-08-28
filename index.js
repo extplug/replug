@@ -126,7 +126,7 @@ function findReturnVar(ast) {
     var retVal = lastSt.argument
     return retVal.type === 'NewExpression'
       ? retVal.callee
-      : retVal.type === 'Identifier'
+      : retVal.type === 'Identifier' && retVal.name !== 'undefined'
       ? retVal
       : null
   }
