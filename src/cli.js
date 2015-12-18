@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 
-var Promise = require('bluebird'),
-  program = require('commander'),
-  ProgressBar = require('progress'),
-  request = require('request'),
-  esrefactor = require('esrefactor'),
-  esprima = require('esprima'),
-  estraverse = require('estraverse'),
-  escodegen = require('escodegen'),
-  mkdirp = Promise.promisify(require('mkdirp')),
-  path = require('path'),
-  fs = Promise.promisifyAll(require('fs')),
-  pkg = require('../package.json'),
-  plugLogin = Promise.promisify(require('plug-login').guest)
+import Promise from 'bluebird'
+import program from 'commander'
+import ProgressBar from 'progress'
+import request from 'request'
+import esrefactor from 'esrefactor'
+import esprima from 'esprima'
+import estraverse from 'estraverse'
+import escodegen from 'escodegen'
+import path from 'path'
+import mkdirp from 'mkdirp-then'
+import fs from 'mz/fs'
+import login from 'plug-login'
 
+import pkg from '../package.json'
 import * as $ from './ast'
 import cleanAst from './clean-ast'
+
+const guest = Promise.promisify(login.guest)
 
 var _v
 
@@ -353,7 +355,7 @@ function extract(modules, mapping) {
 
 function writeFile (name, content) {
   return mkdirp(path.dirname(name))
-    .then(() => fs.writeFileAsync(name, content))
+    .then(() => fs.writeFile(name, content))
 }
 
 function outputFile (name, mapping, beauty) {
@@ -372,7 +374,7 @@ function makeLink (file, niceFile) {
   // cheaty use of path.relative to find link target path
   var linkTarget = path.relative('/' + path.dirname(niceFile), '/' + file)
   return mkdirp(path.dirname(niceFile))
-    .then(() => fs.symlinkAsync(linkTarget, niceFile))
+    .then(() => fs.symlink(linkTarget, niceFile))
 }
 
 function run (mapping, str) {
@@ -383,11 +385,11 @@ function run (mapping, str) {
   modules = remapModuleNames(modules, mapping)
   extract(modules, mapping)
     .tap(() => program.saveSource &&
-      fs.writeFileAsync(path.join(program.out, 'source.js'), str)
+      fs.writeFile(path.join(program.out, 'source.js'), str)
     )
     .tap(() => program.saveMapping &&
-      fs.writeFileAsync(path.join(program.out, 'mapping.json'),
-                        JSON.stringify(mapping, null, 2))
+      fs.writeFile(path.join(program.out, 'mapping.json'),
+                   JSON.stringify(mapping, null, 2))
     )
     .then(() => outputFile('version', {}, 'window._v = \'' + _v + '\';'))
     .then(() => console.log('v' + _v + ' done'))
@@ -395,7 +397,7 @@ function run (mapping, str) {
 
 var mappingString
 if (program.mapping) {
-  mappingString = fs.readFileAsync(program.mapping, 'utf-8')
+  mappingString = fs.readFile(program.mapping, 'utf-8')
 }
 else {
   process.stdout.write('logging in to create mapping...')
@@ -418,7 +420,7 @@ mappingString
     return Promise.props({
       mapping: mapping,
       src: /^https?:/.test(sourceFile)? fetchAppFile(sourceFile)
-           : /* otherwise */            fs.readFileAsync(sourceFile, 'utf-8')
+           : /* otherwise */            fs.readFile(sourceFile, 'utf-8')
     })
   })
   .then(o => run(o.mapping, o.src))
