@@ -77,3 +77,7 @@ Another directory `$OUT_DIR/plug/` contains symlinks with nicer names where
 possible.
 
 Remember to delete the `out/app` directory before every rerun.
+
+## Licence
+
+[MIT](./LICENSE)
