@@ -1,167 +1,104 @@
-import { replace } from 'estraverse'
-import * as $ from './ast'
-
-const isTernaryStatement = node =>
-  node.type === 'ExpressionStatement' &&
-  node.expression.type === 'ConditionalExpression'
-
-const isTernaryReturn = node =>
-  node.type === 'ReturnStatement' &&
-  node.argument &&
-  node.argument.type === 'ConditionalExpression' && (
-    node.argument.consequent.type === 'ConditionalExpression' ||
-    node.argument.consequent.type === 'SequenceExpression' ||
-    node.argument.alternate.type === 'ConditionalExpression' ||
-    node.argument.alternate.type === 'SequenceExpression'
-  )
-
-const isLogicalStatement = node =>
-  node.type === 'ExpressionStatement' &&
-  node.expression.type === 'LogicalExpression'
-
-const isSequence = node =>
-  node.type === 'ExpressionStatement' &&
-  node.expression.type === 'SequenceExpression'
-
-const isSequencedReturn = node =>
-  node.type === 'ReturnStatement' &&
-  node.argument &&
-  node.argument.type === 'SequenceExpression'
-
-const isNegated = (type, node) =>
-  node.type === 'UnaryExpression' &&
-  node.operator === '!' &&
-  node.argument.type === type
-
-const isNestedBracketedElseIf = node =>
-  node.type === 'IfStatement' &&
-  node.alternate && node.alternate.type === 'BlockStatement' &&
-  node.alternate.body.length === 1 && node.alternate.body[0].type === 'IfStatement'
+import traverse from 'babel-traverse'
+import * as t from 'babel-types'
 
 // expand ternary expression statements into if(){}else{} blocks
-const expandTernary = expr => ({
-  type: 'IfStatement',
-  range: expr.range,
-  test: expr.test,
-  consequent: $.block($.statement(expr.consequent)),
-  alternate: expr.alternate.type === 'ConditionalExpression'
-    ? expandTernary(expr.alternate)
-    : $.block($.statement(expr.alternate))
-})
-
-const wrapIfBranches = node => ({
-  ...node,
-  consequent: node.consequent ? $.block(node.consequent) : null,
-  alternate: node.alternate ? $.block(node.alternate) : null
-})
-
-const wrapBody = node => ({
-  ...node,
-  body: $.block(node.body)
-})
+const expandTernary = expr =>
+  t.ifStatement(
+    expr.test,
+    t.expressionStatement(expr.consequent),
+    t.isConditionalExpression(expr.alternate)
+      ? expandTernary(expr.alternate)
+      : t.expressionStatement(expr.alternate)
+  )
 
 // expand `a && b`, `a || b` expressions into `if (a) b`, `if (!a) b` statements.
-const expandAndOr = node => {
-  if (node.expression.operator === '&&') {
-    return {
-      type: 'IfStatement',
-      range: node.range,
-      test: node.expression.left,
-      consequent: $.block($.statement(node.expression.right))
-    }
+const expandAndOr = expr => {
+  if (expr.operator === '&&') {
+    return t.ifStatement(
+      expr.left,
+      t.blockStatement([
+        t.expressionStatement(expr.right)
+      ])
+    )
   }
-  if (node.expression.operator === '||') {
-    return {
-      type: 'IfStatement',
-      range: node.range,
-      test: {
-        type: 'UnaryExpression',
-        operator: '!',
-        range: node.expression.left.range,
-        argument: node.expression.left,
-        prefix: true
-      },
-      consequent: $.statement(node.expression.right)
-    }
+  if (expr.operator === '||') {
+    return t.ifStatement(
+      t.unaryExpression('!', expr.left, true),
+      t.expressionStatement(expr.right)
+    )
   }
   return node
 }
 
 const astReplacer = {
-  enter(node) {
-    // add braces around branch/loop constructs if they are not yet present
-    if (node.type === 'IfStatement') {
-      return wrapIfBranches(node)
-    } else if (node.type === 'ForStatement' || node.type === 'WhileStatement') {
-      return wrapBody(node)
+  // add braces around branch/loop constructs if they are not yet present
+  IfStatement (path) {
+    if (path.node.consequent) {
+      t.ensureBlock(path.node, 'consequent')
+      path.get('consequent').replaceWith(path.node.consequent)
     }
-
-    // turn !0, !1 into true, false
-    if (isNegated('Literal', node)) {
-      if (node.argument.value === 0) {
-        return { type: 'Literal', value: true, raw: 'true' }
-      } else if (node.argument.value === 1) {
-        return { type: 'Literal', value: false, raw: 'false' }
-      }
-    }
-
-    // expand ternary ?: statements to if/else statements
-    if (isTernaryStatement(node)) {
-      return expandTernary(node.expression)
-    }
-    // expand compressed &&, || expressions into if/else statements
-    if (isLogicalStatement(node)) {
-      return expandAndOr(node)
-    }
-
-    // expand some expressions into multiple statements
-    if (node.type === 'BlockStatement') {
-      node.body = node.body.reduce((newBody, node) => {
-        // expand comma-separated expressions on a single line to multiple statements
-        if (isSequence(node)) {
-          return [ ...newBody, ...node.expression.expressions.map($.statement) ]
-        }
-        // expand complex ternary conditionals in return statements to
-        // if(){}else{} statements
-        if (isTernaryReturn(node)) {
-          return newBody.concat({
-            range: node.range,
-            type: 'IfStatement',
-            test: node.argument.test,
-            consequent: $.block({
-              range: node.argument.consequent.range,
-              type: 'ReturnStatement',
-              argument: node.argument.consequent
-            }),
-            alternate: $.block({
-              range: node.argument.alternate.range,
-              type: 'ReturnStatement',
-              argument: node.argument.alternate
-            })
-          })
-        }
-        // expand comma-separated expressions in a return statement to multiple statements
-        if (isSequencedReturn(node)) {
-          const exprs = node.argument.expressions
-          node.argument = exprs.pop()
-          return [ ...newBody, ...exprs.map($.statement), node ]
-        }
-        return [ ...newBody, node ]
-      }, [])
-      return node
+    if (path.node.alternate && !t.isIfStatement(path.node.alternate)) {
+      t.ensureBlock(path.node, 'alternate')
+      path.get('alternate').replaceWith(path.node.alternate)
     }
   },
-  leave(node) {
-    // remove braces from else statements that contain only an if statement
-    // (i.e. else if statements)
-    if (isNestedBracketedElseIf(node)) {
-      node.alternate = node.alternate.body[0]
+  'ForStatement|WhileStatement' (path) {
+    path.get('body').replaceWith(
+      t.ensureBlock(path.node)
+    )
+  },
+  UnaryExpression (path) {
+    if (path.node.operator === '!' &&
+        t.isNumericLiteral(path.node.argument)) {
+      path.replaceWith(
+        t.booleanLiteral(!path.node.argument.value)
+      )
     }
-    return node
+  },
+  ExpressionStatement (path) {
+    // expand comma-separated expressions on a single line to multiple statements
+    if (t.isSequenceExpression(path.node.expression)) {
+      return path.replaceWithMultiple(
+        path.node.expression.expressions.map(expr =>
+          t.expressionStatement(expr)
+        )
+      )
+    }
+    // expand ternary expression statements into if(){}else{} blocks
+    if (t.isConditionalExpression(path.node.expression)) {
+      return path.replaceWith(
+        expandTernary(path.node.expression)
+      )
+    }
+    // expand `a && b`, `a || b` expressions into `if (a) b`, `if (!a) b` statements
+    if (t.isLogicalExpression(path.node.expression)) {
+      return path.replaceWith(
+        expandAndOr(path.node.expression)
+      )
+    }
+  },
+  ReturnStatement (path) {
+    if (t.isSequenceExpression(path.node.argument)) {
+      const exprs = path.node.argument.expressions
+      const last = exprs.pop()
+      path.insertBefore(exprs.map(expr => t.expressionStatement(expr)))
+      path.get('argument').replaceWith(last)
+      return
+    }
+    if (t.isConditionalExpression(path.node.argument)) {
+      const cond = path.node.argument
+      path.replaceWith(
+        t.ifStatement(
+          cond.test,
+          t.returnStatement(cond.consequent),
+          t.returnStatement(cond.alternate)
+        )
+      )
+    }
   }
 }
 
-export default function cleanAst (ast) {
-  replace(ast, astReplacer)
-  return ast
+export default function cleanAst (file) {
+  traverse(file, astReplacer)
+  return file
 }

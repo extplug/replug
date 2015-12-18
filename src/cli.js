@@ -5,17 +5,17 @@ import Promise from 'bluebird'
 import program from 'commander'
 import ProgressBar from 'progress'
 import request from 'request'
-import esrefactor from 'esrefactor'
-import esprima from 'esprima'
-import estraverse from 'estraverse'
-import escodegen from 'escodegen'
+import { parse } from 'babylon'
+import File from 'babel-core/lib/transformation/file'
+import traverse from 'babel-traverse'
+import generate from 'babel-generator'
+import * as t from 'babel-types'
 import path from 'path'
 import mkdirp from 'mkdirp-then'
 import fs from 'mz/fs'
 import login from 'plug-login'
 
 import pkg from '../package.json'
-import * as $ from './ast'
 import cleanAst from './clean-ast'
 
 const guest = Promise.promisify(login.guest)
@@ -33,27 +33,34 @@ program
   .option('--save-mapping', 'Copy the mapping file to the output directory')
   .parse(process.argv)
 
-// formatting for escodegen
-var codegenOptions = {
-  format: { indent: { style: '  ' } },
-  comment: true
+// formatting options! apparently like half of these get overridden though (?)
+var babelGenOptions = {
+  comments: true,
+  quotes: 'single',
+  indent: {
+    style: '  '
+  }
 }
 
 var requestOpts = {
   headers: { 'user-agent': 'replug' }
 }
 
-function progress (text, size) {
-  return new ProgressBar(text + ' [:bar] :percent', {
+const moduleComment = (mapping, name) => ({
+  type: 'Block',
+  value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
+})
+
+const progress = (text, size) =>
+  new ProgressBar(`${text} [:bar] :percent`, {
     total: size,
     width: 40,
     complete: '#',
     clear: true,
     callback () {
-      console.log(text + ' done')
+      console.log(`${text} done`)
     }
   })
-}
 
 function fetchAppFile (url) {
   return new Promise((resolve, reject) => {
@@ -85,24 +92,48 @@ function variableNameFor (dep, mapping) {
        : dep
 }
 
+function sliceTokens (tokens, loc) {
+  let start = 0
+  while (tokens[start].start < loc.start) {
+    start++
+  }
+  let end = start
+  while (tokens[end].end < loc.end) {
+    end++
+  }
+  return tokens.slice(start, end)
+}
+
 function parseModules (str) {
-  var ast = esprima.parse(str, { range: true })
+  var ast = parse(str)
   var modules = {}
   process.stdout.write('parsing javascript...')
-  estraverse.traverse(ast, {
-    enter (node) {
-      if (node.type === 'CallExpression' &&
-          node.callee.name === 'define') {
+  traverse(ast, {
+    CallExpression ({ node }) {
+      if (t.isIdentifier(node.callee, { name: 'define' })) {
         let [ name, deps, factory ] = node.arguments
-        if (deps.type === 'ArrayExpression') {
+        if (t.isArrayExpression(deps)) {
           deps = deps.elements
         }
         else {
           factory = deps
           deps = []
         }
+
+        const tokens = sliceTokens(ast.tokens, node)
+        const code = str.slice(node.start, node.end)
+
+        const comments = []
+        const program = t.file(
+          t.program([ t.expressionStatement(factory) ]),
+          comments,
+          tokens
+        )
+
+        const file = new File()
+        file.addAst(program)
         modules[name.value] = {
-          deps: deps,
+          deps, file, code,
           ast: factory
         }
       }
@@ -115,11 +146,11 @@ function parseModules (str) {
 
 function findReturnVar (ast) {
   var lastSt = ast.body[ast.body.length - 1]
-  if (lastSt && lastSt.type === 'ReturnStatement') {
+  if (t.isReturnStatement(lastSt)) {
     var retVal = lastSt.argument
-    return retVal.type === 'NewExpression'
+    return t.isNewExpression(retVal)
       ? retVal.callee
-      : retVal.type === 'Identifier' && retVal.name !== 'undefined'
+      : t.isIdentifier(retVal) && retVal.name !== 'undefined'
       ? retVal
       : null
   }
@@ -128,7 +159,7 @@ function findReturnVar (ast) {
 function cleanModules (modules) {
   var bar = progress('cleaning module ASTs...', Object.keys(modules).length)
   for (var name in modules) if (modules.hasOwnProperty(name)) {
-    cleanAst(modules[name].ast)
+    cleanAst(modules[name].file.ast)
     bar.tick()
   }
   return modules
@@ -139,7 +170,7 @@ function remapModuleNames (modules, mapping) {
   for (var name in modules) if (modules.hasOwnProperty(name)) {
     var ast = modules[name].ast,
       deps = modules[name].deps,
-      params = ast.params && ast.params.map(function (p) { return p.name })
+      params = ast.params && ast.params.map(p => p.name)
 
     if (!params) {
       bar.tick()
@@ -153,63 +184,43 @@ function remapModuleNames (modules, mapping) {
       // rename variables according to their module names
       if (mapping[dep.value]) {
         newName = variableNameFor(dep.value, mapping)
-        renames.push({ idx: dep.range[0], to: newName })
+        renames.push({ from: params[i], to: newName })
       }
       else if (/^hbs!templates\//.test(dep.value)) {
         newName = 'template' + dep.value.split('/').pop()
-        renames.push({ idx: dep.range[0], to: newName })
+        renames.push({ from: params[i], to: newName })
       }
-      var range = [ dep.range[0] - 1, dep.range[1] + 1 ]
-      return {
-        type: 'VariableDeclaration',
-        kind: 'var',
-        range: range,
-        declarations: [ {
-          type: 'VariableDeclarator',
-          id: assign($.id(params[i]), { range: dep.range }),
-          range: range,
-          init: {
-            type: 'CallExpression',
-            callee: $.id('require'),
-            range: range,
-            arguments: [ assign(dep, {
-              trailingComments: [ {
-                type: 'Block',
-                value: ' ' + (dep.value in mapping ? mapping[dep.value] : 'Unknown module')
-              } ]
-            }) ]
-          }
-        } ]
-      }
+      var range = [ dep.start - 1, dep.end + 1 ]
+      return t.variableDeclaration('var', [
+        t.variableDeclarator(
+          t.identifier(params[i]),
+          t.callExpression(t.identifier('require'), [
+            assign(dep, {
+              trailingComments: [ moduleComment(mapping, dep.value) ]
+            })
+          ])
+        )
+      ])
     })
 
     // move dependencies from the define() call
     // to the factory body
     ast.body.body = depsAst.concat(ast.body.body)
     ast.params = [
-      $.id('require'),
-      $.id('exports'),
-      $.id('module')
+      t.identifier('require'),
+      t.identifier('exports'),
+      t.identifier('module')
     ]
 
     var returnVar = findReturnVar(ast.body)
     if (returnVar) {
       renames.push({
-        idx: returnVar.range[0],
+        from: returnVar.name,
         to: variableNameFor(name, mapping)
       })
     }
 
-    // wrap the ast in a Program node so esrefactor accepts it
-    var fullAst = $.largeRange({
-      type: 'Program',
-      body: [ $.largeRange({
-        type: 'ExpressionStatement',
-        expression: ast
-      }) ]
-    })
-
-    processRenames(fullAst, renames)
+    processRenames(modules[name].file.ast, renames)
     bar.tick()
   }
 
@@ -230,10 +241,10 @@ function getDependents (modules, name) {
 function findMemberExpressionName (ast) {
   var body = ast.body
   for (var i = 0, l = body.length; i < l; i++) {
-    if (body[i].type === 'ExpressionStatement' &&
-        body[i].expression.type === 'AssignmentExpression' &&
-        body[i].expression.left.type === 'MemberExpression' &&
-        body[i].expression.left.object.type === 'Identifier') {
+    if (t.isExpressionStatement(body[i]) &&
+        t.isAssignmentExpression(body[i].expression) &&
+        t.isMemberExpression(body[i].expression.left) &&
+        t.isIdentifier(body[i].expression.left.object)) {
       return body[i].expression.left.property
     }
   }
@@ -304,20 +315,15 @@ function addMappingForUnknownModules (modules, mapping) {
 }
 
 function processRenames (ast, renames) {
-  var renaming = new esrefactor.Context(ast)
-  renames.forEach(r => {
-    var id = renaming.identify(r.idx)
-    if (id) {
-      // rename manually.
-      // esrefactor renames things "in-place" in the source code,
-      // which means that you have to parse the source again every
-      // time you rename a variable. Since we don't need to retain
-      // formatting (it's minified code at this point, after all)
-      // we can manually rename all variables at once without ever
-      // parsing the source again.
-      if (id.identifier) id.identifier.name = r.to
-      if (id.declaration) id.declaration.name = r.to
-      id.references.forEach(node => { node.name = r.to })
+  traverse(ast, {
+    FunctionExpression (path) {
+      renames.forEach(({ from, to }) => {
+        if (path.scope.hasBinding(to)) {
+          path.scope.rename(to, path.scope.generateUid(to))
+        }
+        path.scope.rename(from, to)
+      })
+      path.stop()
     }
   })
   return ast
@@ -327,23 +333,18 @@ function extract(modules, mapping) {
   var moduleNames = Object.keys(modules)
   var bar = progress('extracting files...', moduleNames.length)
   return Promise.each(moduleNames, name => {
-    var ast = {
-      type: 'Program',
-      body: [ $.statement({
-        type: 'CallExpression',
-        callee: $.id('define'),
-        arguments: [
-          assign($.literal(name), {
-            trailingComments: [ {
-              type: 'Block',
-              value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
-            } ]
+    const mod = modules[name]
+    var ast = t.program([
+      t.expressionStatement(
+        t.callExpression(t.identifier('define'), [
+          assign(t.stringLiteral(name), {
+            trailingComments: [ moduleComment(mapping, name) ]
           }),
-          modules[name].ast
-        ]
-      }) ]
-    }
-    return outputFile(name, mapping, escodegen.generate(ast, codegenOptions))
+          mod.ast
+        ])
+      )
+    ])
+    return outputFile(name, mapping, generate(ast, babelGenOptions, mod.code))
       .tap(bar.tick.bind(bar))
   }).return(modules)
 }
@@ -353,13 +354,13 @@ function writeFile (name, content) {
     .then(() => fs.writeFile(name, content))
 }
 
-function outputFile (name, mapping, beauty) {
+function outputFile (name, mapping, code) {
   var file = path.join(program.out, name + '.js')
-  return writeFile(file, beauty).then(() => {
+  return writeFile(file, code.code).then(() => {
     // set up symlinks from nicer paths
     if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
       var niceFile = path.join(program.out, mapping[name] + '.js')
-      return program.copy?   writeFile(niceFile, beauty)
+      return program.copy?   writeFile(niceFile, code.code)
            : /* otherwise */ makeLink(file, niceFile)
     }
   })
