@@ -8,16 +8,16 @@ var pmPath = path.join(__dirname, '../node_modules/plug-modules/plug-modules.js'
 module.exports = createMapping
 
 // stubs needed by plug.dj's app code at boot time
-var stubs = {
+const stubs = {
   localStorage: {
-    getItem: function () {},
-    setItem: function () {},
-    clear: function () {}
+    getItem () {},
+    setItem () {},
+    clear () {}
   },
   gapi: {
     client: {
-      setApiKey: function () {},
-      load: function () {}
+      setApiKey () {},
+      load () {}
     }
   },
   Intercom: {},
@@ -25,9 +25,9 @@ var stubs = {
   FB: { init: function () {} }
 }
 
-function jsdomEnv(opts) {
-  return new Promise(function (resolve, reject) {
-    opts.done = function (e, window) {
+function jsdomEnv (opts) {
+  return new Promise((resolve, reject) => {
+    opts.done = (e, window) => {
       if (e) reject(e)
       else   resolve(window)
     }
@@ -35,11 +35,11 @@ function jsdomEnv(opts) {
   })
 }
 
-function waitForRequireJs(window) {
-  return new Promise(function (resolve, reject) {
+function waitForRequireJs (window) {
+  return new Promise((resolve, reject) => {
     // wait for the app javascript to load, then run plug-modules
     var intv = setInterval(waitForRequireJs, 20)
-    function waitForRequireJs() {
+    function waitForRequireJs () {
       if (window.requirejs) {
         window.define('facebook', stubs.FB)
         // intercept plug.dj's booting code
@@ -49,9 +49,9 @@ function waitForRequireJs(window) {
         // usually throws an error somewhere. instead we override the callback
         // with an empty function :D
         var orig = window.require
-        window.require = function (arg) {
+        window.require = function require (arg) {
           if (Array.isArray(arg) && arg[0].indexOf('http') !== 0) {
-            return orig(arg, function () {
+            return orig(arg, () => {
               /* ... */
               clearInterval(intv)
               resolve()
@@ -70,7 +70,7 @@ function waitForRequireJs(window) {
 // environment (aka jsdom).
 // You need to be logged in to run plug-modules, so pass in a cookie jar with
 // a valid session cookie.
-function createMapping(jar, cb) {
+function createMapping (jar, cb) {
   return jsdomEnv({
     url: 'https://plug.dj/plug-socket-test',
     headers: {
@@ -85,25 +85,21 @@ function createMapping(jar, cb) {
            // will generate the mapping file
          , fs.readFileSync(path.join(__dirname, '../getMapping.js'), 'utf-8') ]
   })
-    .tap(function (window) {
+    .tap(window => {
       // stub out some objects that plug needs at boot time
       assign(window, stubs)
       return waitForRequireJs(window)
     })
-    .then(function (window) {
-      var reqAsync = function (id) {
-        return new Promise(window.requirejs.bind(null, id))
-      }
+    .then(window => {
+      var reqAsync = id => new Promise(window.requirejs.bind(null, id))
 
       return fs.readFileAsync(pmPath, 'utf-8')
-        .then(function (plugModules) {
-          // ensure that plugModules defines itself as "plug-modules"
-          return plugModules.replace('define([', 'define("plug-modules",[')
-        })
+        // ensure that plugModules defines itself as "plug-modules"
+        .then(plugModules => plugModules.replace('define([', 'define("plug-modules",['))
         // insert plug-modules
-        .then(function (src) { return window.eval(src) })
-        .then(function ()    { return reqAsync([ 'plug-modules' ]) })
-        .then(function (pm)  { return window.getMapping(pm, true) })
-        .tap (function ()    { window.close() })
+        .then(src => window.eval(src))
+        .then(() => reqAsync([ 'plug-modules' ]))
+        .then(pm => window.getMapping(pm, true))
+        .tap (() => window.close())
     })
 }

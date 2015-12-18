@@ -19,5 +19,13 @@
     "plug-modules": ">=4.0.0",
     "progress": "1.x",
     "request": "*"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.3.17",
+    "babel-preset-es2015": "^6.3.13",
+    "babel-preset-stage-0": "^6.3.13"
+  },
+  "scripts": {
+    "build": "babel --out-dir lib src"
   }
 }
