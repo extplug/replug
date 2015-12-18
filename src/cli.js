@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import assign from 'object-assign'
 import Promise from 'bluebird'
 import program from 'commander'
 import ProgressBar from 'progress'
@@ -40,12 +41,6 @@ var codegenOptions = {
 
 var requestOpts = {
   headers: { 'user-agent': 'replug' }
-}
-
-// poor lady's merge
-function merge (o, a) {
-  Object.keys(a).forEach(k => { o[k] = a[k] })
-  return o
 }
 
 function progress (text, size) {
@@ -171,13 +166,13 @@ function remapModuleNames (modules, mapping) {
         range: range,
         declarations: [ {
           type: 'VariableDeclarator',
-          id: merge($.id(params[i]), { range: dep.range }),
+          id: assign($.id(params[i]), { range: dep.range }),
           range: range,
           init: {
             type: 'CallExpression',
             callee: $.id('require'),
             range: range,
-            arguments: [ merge(dep, {
+            arguments: [ assign(dep, {
               trailingComments: [ {
                 type: 'Block',
                 value: ' ' + (dep.value in mapping ? mapping[dep.value] : 'Unknown module')
@@ -338,7 +333,7 @@ function extract(modules, mapping) {
         type: 'CallExpression',
         callee: $.id('define'),
         arguments: [
-          merge($.literal(name), {
+          assign($.literal(name), {
             trailingComments: [ {
               type: 'Block',
               value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
