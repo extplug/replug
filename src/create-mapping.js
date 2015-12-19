@@ -1,11 +1,11 @@
-var fs = require('fs')
-var path = require('path')
-var Promise = require('bluebird')
-var assign = require('object-assign')
+import assign from 'object-assign'
+import { join as joinPath } from 'path'
+import jsdom from 'jsdom'
+import Promise from 'bluebird'
+import { readFile } from 'mz/fs'
+import { readFileSync } from 'fs'
 
-var pmPath = path.join(__dirname, '../node_modules/plug-modules/plug-modules.js')
-
-module.exports = createMapping
+const pmPath = require.resolve('plug-modules')
 
 // stubs needed by plug.dj's app code at boot time
 const stubs = {
@@ -31,14 +31,14 @@ function jsdomEnv (opts) {
       if (e) reject(e)
       else   resolve(window)
     }
-    require('jsdom').env(opts)
+    jsdom.env(opts)
   })
 }
 
 function waitForRequireJs (window) {
   return new Promise((resolve, reject) => {
     // wait for the app javascript to load, then run plug-modules
-    var intv = setInterval(waitForRequireJs, 20)
+    const intv = setInterval(waitForRequireJs, 20)
     function waitForRequireJs () {
       if (window.requirejs) {
         window.define('facebook', stubs.FB)
@@ -48,7 +48,7 @@ function waitForRequireJs (window) {
         // but we don't want to start plug.dj because that's expensive and
         // usually throws an error somewhere. instead we override the callback
         // with an empty function :D
-        var orig = window.require
+        const orig = window.require
         window.require = function require (arg) {
           if (Array.isArray(arg) && arg[0].indexOf('http') !== 0) {
             return orig(arg, () => {
@@ -70,36 +70,36 @@ function waitForRequireJs (window) {
 // environment (aka jsdom).
 // You need to be logged in to run plug-modules, so pass in a cookie jar with
 // a valid session cookie.
-function createMapping (jar, cb) {
-  return jsdomEnv({
-    url: 'https://plug.dj/plug-socket-test',
-    headers: {
-      Cookie: jar.getCookieString('https://plug.dj/')
-    },
-    features: {
-      FetchExternalResources: [ 'script' ],
-      ProcessExternalResources: [ 'script' ]
-    },
-    src: [ // prevent getMapping.js autorun
-           'window._REPLUG_AUTO = true'
-           // will generate the mapping file
-         , fs.readFileSync(path.join(__dirname, '../getMapping.js'), 'utf-8') ]
-  })
+export default function createMapping (jar, cb) {
+  const reqAsync = (req, id) => new Promise((resolve, reject) => req(id, resolve, reject))
+
+  return readFile(joinPath(__dirname, '../getMapping.js'), 'utf-8')
+    .then(getMappingSrc =>
+      jsdomEnv({
+        url: 'https://plug.dj/plug-socket-test',
+        headers: {
+          Cookie: jar.getCookieString('https://plug.dj/')
+        },
+        features: {
+          FetchExternalResources: [ 'script' ],
+          ProcessExternalResources: [ 'script' ]
+        },
+        src: [ getMappingSrc ]
+      })
+    )
     .tap(window => {
       // stub out some objects that plug needs at boot time
       assign(window, stubs)
       return waitForRequireJs(window)
     })
-    .then(window => {
-      var reqAsync = id => new Promise(window.requirejs.bind(null, id))
-
-      return fs.readFileAsync(pmPath, 'utf-8')
+    .then(window =>
+      readFile(pmPath, 'utf-8')
         // ensure that plugModules defines itself as "plug-modules"
         .then(plugModules => plugModules.replace('define([', 'define("plug-modules",['))
         // insert plug-modules
         .then(src => window.eval(src))
-        .then(() => reqAsync([ 'plug-modules' ]))
-        .then(pm => window.getMapping(pm, true))
+        .then(() => reqAsync(window.requirejs, [ 'plug-modules' ]))
+        .then(pm => window.getMapping(pm))
         .tap (() => window.close())
-    })
+    )
 }

@@ -1,21 +1,8 @@
-// don't run automatically when called by replug
-if (!window._REPLUG_AUTO) {
-  if (require.defined('plug-modules')) {
-    getMapping(require('plug-modules'));
-  }
-  else if (typeof window.plugModules !== 'undefined') {
-    getMapping(window.plugModules);
-  }
-  else {
-    require([ 'https://rawgit.com/ExtPlug/plug-modules/master/plug-modules.js' ], getMapping);
-  }
-}
-
-function getMapping(plugModules, returnOnly) {
+function getMapping(plugModules) {
 
   plugModules.run();
 
-  var knownKeys = _.keys(plugModules._nameMapping);
+  var knownKeys = Object.keys(plugModules._nameMapping);
   var unknownKeys = plugModules.getUnknownModules();
 
   var knownModules = knownKeys.map(function (key) {
@@ -64,7 +51,7 @@ function getMapping(plugModules, returnOnly) {
     fullMapping[mod.original] = mod.name;
   });
 
-  var scriptSources = $('script[src^="https://cdn.plug"]').map(function (e) {
+  var scriptSources = $('script[src*="cdn.plug"]').map(function (e) {
     return this.src;
   });
 
@@ -76,24 +63,13 @@ function getMapping(plugModules, returnOnly) {
   var langUrl = find(scriptSources, contains('js/lang/'));
   var avatarsUrl = find(scriptSources, contains('js/avatars'));
 
-  var result = JSON.stringify({
+  return JSON.stringify({
     version: version,
     appUrl: appUrl,
     langUrl: langUrl,
     avatarsUrl: avatarsUrl,
     mapping: fullMapping
   });
-
-  if (!returnOnly) {
-    var dl = document.createElement('a');
-    dl.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(result));
-    dl.setAttribute('download', 'mapping.json');
-    document.body.appendChild(dl);
-    dl.click();
-    document.body.removeChild(dl);
-  }
-
-  return result;
 
   function find(arr, fn) {
     for (var i = 0, l = arr.length; i < l; i++)
