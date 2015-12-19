@@ -31,7 +31,7 @@ Or for source:
       --save-source         Copy the source javascript to the output directory
       --save-mapping        Copy the mapping file to the output directory
 
-### easy way
+### examples
 
 **Plain:**
 
@@ -60,23 +60,6 @@ the below old-fashioned way but headless.
 Remapped module names are symlinked to the source files. If you're on Windows
 or don't like symlinks, pass the `--copy` option which will output the full
 source files in both the original and the remapped paths.
-
-### harder, partly browser-based, but still pretty solid way:
-
-1. Log in to plug.dj (lol)
-1. Run the `getMapping.js` file in your browser console
-1. A `mapping.json` file will be downloaded. This file contains the mapping from
-   plug.dj's obfuscated module names, to `plug-modules`'s deobfuscated module
-   names. `replug` will use it to determine the file names for modules.
-1. Run the index.js file in this repo: `node index.js --mapping <file>`, eg.
-   `node index.js --mapping mapping.json`
-1. Wait
-1. Check `out/app` which will now contain a ton of files. Actual files are in a
-directory with a semi-random name, which is the actual plug.dj module name.
-Another directory `$OUT_DIR/plug/` contains symlinks with nicer names where
-possible.
-
-Remember to delete the `out/app` directory before every rerun.
 
 ## Licence
 
