@@ -17,10 +17,11 @@ import login from 'plug-login'
 
 import pkg from '../package.json'
 import cleanAst from './clean-ast'
+import createMappingFile from './create-mapping'
 
-const guest = Promise.promisify(login.guest)
+const guestLogin = Promise.promisify(login.guest)
 
-var _v
+let _v
 
 program
   .usage('[options]')
@@ -34,7 +35,7 @@ program
   .parse(process.argv)
 
 // formatting options! apparently like half of these get overridden though (?)
-var babelGenOptions = {
+const babelGenOptions = {
   comments: true,
   quotes: 'single',
   indent: {
@@ -42,7 +43,7 @@ var babelGenOptions = {
   }
 }
 
-var requestOpts = {
+const requestOpts = {
   headers: { 'user-agent': 'replug' }
 }
 
@@ -69,15 +70,15 @@ function fetchAppFile (url) {
       else   resolve(res && res.body)
     })
     .on('response', function (res) {
-      var size = parseInt(res.headers['content-length'], 10)
-      var bar = progress('downloading app javascript...', size)
+      const size = parseInt(res.headers['content-length'], 10)
+      const bar = progress('downloading app javascript...', size)
       res.on('data', chunk => bar.tick(chunk.length))
     })
   })
 }
 
 function variableNameFor (dep, mapping) {
-  var libraryNames = {
+  const libraryNames = {
     jquery: '$',
     backbone: 'Backbone',
     handlebars: 'Handlebars',
@@ -105,8 +106,8 @@ function sliceTokens (tokens, loc) {
 }
 
 function parseModules (str) {
-  var ast = parse(str)
-  var modules = {}
+  const ast = parse(str)
+  const modules = {}
   process.stdout.write('parsing javascript...')
   traverse(ast, {
     CallExpression ({ node }) {
@@ -145,9 +146,9 @@ function parseModules (str) {
 }
 
 function findReturnVar (ast) {
-  var lastSt = ast.body[ast.body.length - 1]
+  const lastSt = ast.body[ast.body.length - 1]
   if (t.isReturnStatement(lastSt)) {
-    var retVal = lastSt.argument
+    const retVal = lastSt.argument
     return t.isNewExpression(retVal)
       ? retVal.callee
       : t.isIdentifier(retVal) && retVal.name !== 'undefined'
@@ -157,30 +158,30 @@ function findReturnVar (ast) {
 }
 
 function cleanModules (modules) {
-  var bar = progress('cleaning module ASTs...', Object.keys(modules).length)
-  for (var name in modules) if (modules.hasOwnProperty(name)) {
+  const names = Object.keys(modules)
+  const bar = progress('cleaning module ASTs...', names.length)
+  names.forEach(name => {
     cleanAst(modules[name].file.ast)
     bar.tick()
-  }
+  })
   return modules
 }
 
 function remapModuleNames (modules, mapping) {
-  var bar = progress('remapping module names...', Object.keys(modules).length)
-  for (var name in modules) if (modules.hasOwnProperty(name)) {
-    var ast = modules[name].ast,
-      deps = modules[name].deps,
-      params = ast.params && ast.params.map(p => p.name)
+  const names = Object.keys(modules)
+  const bar = progress('remapping module names...', names.length)
+  names.forEach(name => {
+    const { ast, deps } = modules[name]
+    const params = ast.params && ast.params.map(param => param.name)
 
     if (!params) {
-      bar.tick()
-      continue
+      return bar.tick()
     }
-    var renames = []
+    const renames = []
     // build ast of dependency require()s
-    var depsAst = deps.map((dep, i) => {
+    const depsAst = deps.map((dep, i) => {
       if (!params[i]) params[i] = '__' + i
-      var newName = 'unknown'
+      let newName = 'unknown'
       // rename variables according to their module names
       if (mapping[dep.value]) {
         newName = variableNameFor(dep.value, mapping)
@@ -190,7 +191,6 @@ function remapModuleNames (modules, mapping) {
         newName = 'template' + dep.value.split('/').pop()
         renames.push({ from: params[i], to: newName })
       }
-      var range = [ dep.start - 1, dep.end + 1 ]
       return t.variableDeclaration('var', [
         t.variableDeclarator(
           t.identifier(params[i]),
@@ -212,7 +212,7 @@ function remapModuleNames (modules, mapping) {
       t.identifier('module')
     ]
 
-    var returnVar = findReturnVar(ast.body)
+    const returnVar = findReturnVar(ast.body)
     if (returnVar) {
       renames.push({
         from: returnVar.name,
@@ -222,25 +222,20 @@ function remapModuleNames (modules, mapping) {
 
     processRenames(modules[name].file.ast, renames)
     bar.tick()
-  }
+  })
 
   return modules
 }
 
 function getDependents (modules, name) {
-  var dependents = []
   const isDep = d => d.value === name
-  for (var i in modules) if (modules.hasOwnProperty(i)) {
-    if (modules[i].deps.some(isDep)) {
-      dependents.push(i)
-    }
-  }
-  return dependents
+  return Object.keys(modules)
+    .filter(name => modules[name].deps.some(isDep))
 }
 
 function findMemberExpressionName (ast) {
-  var body = ast.body
-  for (var i = 0, l = body.length; i < l; i++) {
+  const body = ast.body
+  for (let i = 0, l = body.length; i < l; i++) {
     if (t.isExpressionStatement(body[i]) &&
         t.isAssignmentExpression(body[i].expression) &&
         t.isMemberExpression(body[i].expression.left) &&
@@ -250,7 +245,7 @@ function findMemberExpressionName (ast) {
   }
 }
 function addMappingForUnknownModules (modules, mapping) {
-  for (var orig in mapping) {
+  for (const orig in mapping) {
     if (mapping[orig] === 'plug/server/socketReceiver') {
       // websocket event receiver modules don't export anything,
       // so they cannot be identified individually by plug-modules.
@@ -262,11 +257,11 @@ function addMappingForUnknownModules (modules, mapping) {
       // can find all modules that depend on socketReceiver, and find
       // the relevant assignments.
       getDependents(modules, orig).forEach(name => {
-        var prop = findMemberExpressionName(modules[name].ast.body)
+        const prop = findMemberExpressionName(modules[name].ast.body)
         if (prop) {
           // some of these modules have multiple event receivers, so we
           // rename them to be a bit more clear.
-          var niceName = {
+          const niceName = {
             // contains a bunch of booth/wait list moderation events
             modAddDJ: 'plug/server/socket/modBooth',
             // contains subscription, XP, and PP events
@@ -286,9 +281,9 @@ function addMappingForUnknownModules (modules, mapping) {
     }
     else if (mapping[orig] === 'plug/util/API') {
       getDependents(modules, orig).forEach(name => {
-        var prop = findMemberExpressionName(modules[name].ast.body)
+        const prop = findMemberExpressionName(modules[name].ast.body)
         if (prop) {
-          var niceName = {
+          const niceName = {
             getAdmins: 'admins',
             getAmbassadors: 'ambassadors',
             getAudience: 'audience',
@@ -330,11 +325,11 @@ function processRenames (ast, renames) {
 }
 
 function extract(modules, mapping) {
-  var moduleNames = Object.keys(modules)
-  var bar = progress('extracting files...', moduleNames.length)
+  const moduleNames = Object.keys(modules)
+  const bar = progress('extracting files...', moduleNames.length)
   return Promise.each(moduleNames, name => {
     const mod = modules[name]
-    var ast = t.program([
+    const ast = t.program([
       t.expressionStatement(
         t.callExpression(t.identifier('define'), [
           assign(t.stringLiteral(name), {
@@ -355,11 +350,11 @@ function writeFile (name, content) {
 }
 
 function outputFile (name, mapping, code) {
-  var file = path.join(program.out, name + '.js')
+  const file = path.join(program.out, `${name}.js`)
   return writeFile(file, code.code).then(() => {
     // set up symlinks from nicer paths
     if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
-      var niceFile = path.join(program.out, mapping[name] + '.js')
+      const niceFile = path.join(program.out, `${mapping[name]}.js`)
       return program.copy?   writeFile(niceFile, code.code)
            : /* otherwise */ makeLink(file, niceFile)
     }
@@ -368,13 +363,13 @@ function outputFile (name, mapping, code) {
 
 function makeLink (file, niceFile) {
   // cheaty use of path.relative to find link target path
-  var linkTarget = path.relative('/' + path.dirname(niceFile), '/' + file)
+  const linkTarget = path.relative('/' + path.dirname(niceFile), '/' + file)
   return mkdirp(path.dirname(niceFile))
     .then(() => fs.symlink(linkTarget, niceFile))
 }
 
 function run (mapping, str) {
-  var modules = parseModules(str)
+  let modules = parseModules(str)
   console.log('found', Object.keys(modules).length, 'modules.')
   modules = cleanModules(modules)
   addMappingForUnknownModules(modules, mapping)
@@ -391,30 +386,30 @@ function run (mapping, str) {
     .then(() => console.log('v' + _v + ' done'))
 }
 
-var mappingString
+let mappingString
 if (program.mapping) {
   mappingString = fs.readFile(program.mapping, 'utf-8')
 }
 else {
   process.stdout.write('logging in to create mapping...')
-  mappingString = plugLogin(requestOpts)
+  mappingString = guestLogin(requestOpts)
     .then(result => {
       console.log('  logged in to plug.dj')
       process.stdout.write('generating mapping...')
-      return require('./lib/create-mapping')(result.jar)
+      return createMappingFile(result.jar)
     })
 }
 
 mappingString
   .then(JSON.parse)
   .then(result => {
-    var mapping = result.mapping
-    var sourceFile = result.appUrl
+    const mapping = result.mapping
+    const sourceFile = result.appUrl
     // global!
     _v = result.version
 
     return Promise.props({
-      mapping: mapping,
+      mapping,
       src: /^https?:/.test(sourceFile)? fetchAppFile(sourceFile)
            : /* otherwise */            fs.readFile(sourceFile, 'utf-8')
     })
