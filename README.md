@@ -1,11 +1,7 @@
 # non-lethal plug.dj reverse engineering
 
-A messy script that spews as-sexy-as-computerly-possible versions of plug.dj
+A messy script that spews as-readable-as-computerly-possible versions of plug.dj
 modules into a directory.
-
-Minimal customizability, not enough automation. Awesome. :shipit:
-
-Slap ReAnna if it doesn't work. (Metaphorically.)
 
 ## installing
 
@@ -45,7 +41,8 @@ replug
 **Full:**
 
 Outputs in `output-directory/`, and stores the original JavaScript source in
-`source.js`, and the mapping file as `mapping.json`.
+`source.js`, and the mapping file as `mapping.json`. The mapping file maps
+plug.dj module names to readable module names.
 
 ```
 replug --out output-directory \
@@ -54,8 +51,7 @@ replug --out output-directory \
 
 The easy way runs [`plug-modules`](https://github.com/ExtPlug/plug-modules)
 automatically to remap plug.dj's obfuscated module names to readable module
-names. It does that by essentially fully loading and booting plug.dj, much like
-the below old-fashioned way but headless.
+names.
 
 Remapped module names are symlinked to the source files. If you're on Windows
 or don't like symlinks, pass the `--copy` option which will output the full
