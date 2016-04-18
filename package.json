@@ -6,18 +6,27 @@
   "repository": "ExtPlug/replug",
   "bin": "./index.js",
   "dependencies": {
+    "babel-generator": "^6.3.21",
+    "babel-traverse": "^6.3.21",
+    "babel-types": "^6.3.21",
+    "babylon": "^6.3.21",
     "bluebird": "^2.9.30",
     "commander": "2.x",
-    "escodegen": "^1.6.1",
-    "esprima": "^2.0.0",
-    "esrefactor": "*",
-    "estraverse": "^1.9.1",
     "jsdom": ">=6.x",
-    "mkdirp": "*",
+    "mkdirp-then": "^1.1.0",
+    "mz": "^2.1.0",
     "object-assign": "^3.0.0",
     "plug-login": "*",
     "plug-modules": ">=4.0.0",
     "progress": "1.x",
     "request": "*"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.3.17",
+    "babel-preset-es2015": "^6.3.13",
+    "babel-preset-stage-0": "^6.3.13"
+  },
+  "scripts": {
+    "build": "babel --out-dir lib src"
   }
 }
