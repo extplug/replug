@@ -1,6 +1,6 @@
 {
   "name": "replug",
-  "version": "1.6.3",
+  "version": "1.7.0",
   "license": "MIT",
   "description": "Auto-reverse engineer Plug.dj javascript",
   "repository": "ExtPlug/replug",
