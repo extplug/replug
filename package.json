@@ -15,7 +15,7 @@
     "jsdom": ">=6.x",
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
-    "object-assign": "^3.0.0",
+    "object-assign": "^4.1.0",
     "plug-login": "*",
     "plug-modules": ">=4.0.0",
     "progress": "1.x",
