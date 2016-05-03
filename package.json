@@ -8,7 +8,7 @@
   "dependencies": {
     "babel-generator": "^6.3.21",
     "babel-traverse": "^6.3.21",
-    "babel-types": "^6.3.21",
+    "babel-types": "^6.8.0",
     "babylon": "^6.3.21",
     "bluebird": "^2.9.30",
     "commander": "2.x",
