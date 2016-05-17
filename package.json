@@ -7,7 +7,7 @@
   "bin": "./index.js",
   "dependencies": {
     "babel-generator": "^6.3.21",
-    "babel-traverse": "^6.3.21",
+    "babel-traverse": "^6.9.0",
     "babel-types": "^6.3.21",
     "babylon": "^6.3.21",
     "bluebird": "^2.9.30",
