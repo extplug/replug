@@ -10,7 +10,7 @@
     "babel-traverse": "^6.3.21",
     "babel-types": "^6.3.21",
     "babylon": "^6.3.21",
-    "bluebird": "^2.9.30",
+    "bluebird": "^3.4.1",
     "commander": "2.x",
     "jsdom": ">=6.x",
     "mkdirp-then": "^1.1.0",
