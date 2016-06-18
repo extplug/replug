@@ -3,7 +3,7 @@
   "version": "1.7.0",
   "license": "MIT",
   "description": "Auto-reverse engineer Plug.dj javascript",
-  "repository": "ExtPlug/replug",
+  "repository": "extplug/replug",
   "bin": "./index.js",
   "dependencies": {
     "babel-core": "^6.9.1",
@@ -28,6 +28,7 @@
     "babel-preset-stage-0": "^6.3.13"
   },
   "scripts": {
+    "prepublish": "npm run build",
     "build": "babel --out-dir lib src"
   }
 }
