@@ -73,7 +73,7 @@ function waitForRequireJs (window) {
 export default function createMapping (jar, cb) {
   const reqAsync = (req, id) => new Promise((resolve, reject) => req(id, resolve, reject))
 
-  return readFile(joinPath(__dirname, '../getMapping.js'), 'utf-8')
+  return readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8')
     .then(getMappingSrc =>
       jsdomEnv({
         url: 'https://plug.dj/plug-socket-test',
