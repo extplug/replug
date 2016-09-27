@@ -5,7 +5,7 @@ import Promise from 'bluebird'
 import { readFile } from 'mz/fs'
 import { readFileSync } from 'fs'
 
-const pmPath = require.resolve('plug-modules')
+const pmPath = require.resolve('plug-modules/plug-modules')
 
 // stubs needed by plug.dj's app code at boot time
 const stubs = {
