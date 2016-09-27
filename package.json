@@ -13,7 +13,7 @@
     "babylon": "^6.3.21",
     "bluebird": "^3.3.5",
     "commander": "2.x",
-    "jsdom": ">=6.x",
+    "jsdom": ">=8.5.0",
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
     "object-assign": "^4.0.1",
