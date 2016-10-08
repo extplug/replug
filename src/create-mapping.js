@@ -1,11 +1,12 @@
 import assign from 'object-assign'
 import { join as joinPath } from 'path'
 import jsdom from 'jsdom'
+import bresolve from 'browser-resolve'
 import Promise from 'bluebird'
 import { readFile } from 'mz/fs'
 import { readFileSync } from 'fs'
 
-const pmPath = require.resolve('plug-modules/plug-modules')
+const pmPath = bresolve.sync('plug-modules')
 
 // stubs needed by plug.dj's app code at boot time
 const stubs = {
