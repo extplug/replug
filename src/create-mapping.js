@@ -6,7 +6,7 @@ import Promise from 'bluebird'
 import { readFile } from 'mz/fs'
 import { readFileSync } from 'fs'
 
-const pmPath = bresolve.sync('plug-modules')
+const pmPath = bresolve.sync('plug-modules', { filename: __filename })
 
 // stubs needed by plug.dj's app code at boot time
 const stubs = {
