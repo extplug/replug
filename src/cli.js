@@ -398,6 +398,11 @@ else {
       process.stdout.write('generating mapping...')
       return createMappingFile(result.jar)
     })
+    .catch(err => {
+      console.log('')
+      console.error('Could not log in.')
+      console.error(err.stack || err.message || err)
+    })
 }
 
 mappingString
