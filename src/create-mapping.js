@@ -4,7 +4,6 @@ import jsdom from 'jsdom'
 import bresolve from 'browser-resolve'
 import Promise from 'bluebird'
 import { readFile } from 'mz/fs'
-import { readFileSync } from 'fs'
 
 const pmPath = bresolve.sync('plug-modules', { filename: __filename })
 
@@ -29,8 +28,11 @@ const stubs = {
 function jsdomEnv (opts) {
   return new Promise((resolve, reject) => {
     opts.done = (e, window) => {
-      if (e) reject(e)
-      else   resolve(window)
+      if (e) {
+        reject(e)
+      } else {
+        resolve(window)
+      }
     }
     jsdom.env(opts)
   })
@@ -75,7 +77,7 @@ export default function createMapping (jar, cb) {
   const reqAsync = (req, id) => new Promise((resolve, reject) => req(id, resolve, reject))
 
   return readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8')
-    .then(getMappingSrc =>
+    .then((getMappingSrc) =>
       jsdomEnv({
         url: 'https://plug.dj/plug-socket-test',
         headers: {
@@ -88,19 +90,19 @@ export default function createMapping (jar, cb) {
         src: [ getMappingSrc ]
       })
     )
-    .tap(window => {
+    .tap((window) => {
       // stub out some objects that plug needs at boot time
       assign(window, stubs)
       return waitForRequireJs(window)
     })
-    .then(window =>
+    .then((window) =>
       readFile(pmPath, 'utf-8')
         // ensure that plugModules defines itself as "plug-modules"
-        .then(plugModules => plugModules.replace('define([', 'define("plug-modules",['))
+        .then((plugModules) => plugModules.replace('define([', 'define("plug-modules",['))
         // insert plug-modules
-        .then(src => window.eval(src))
+        .then((src) => window.eval(src))
         .then(() => reqAsync(window.requirejs, [ 'plug-modules' ]))
-        .then(pm => window.getMapping(pm))
-        .tap (() => window.close())
+        .then((pm) => window.getMapping(pm))
+        .tap(() => window.close())
     )
 }

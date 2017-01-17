@@ -1,3 +1,6 @@
+/* global $ */
+
+// eslint-disable-next-line no-unused-vars
 function getMapping (plugModules) {
   plugModules.run()
 
@@ -41,6 +44,8 @@ function getMapping (plugModules) {
     (mod) => mod.name.indexOf('plug/') === 0
   )
 
+  void unknownPlugModules // It's not used atm
+
   // build full mapping of original names to (possibly partially guessed) proper names
   const fullMapping = {}
   knownModules.concat(unknownModules).forEach((mod) => {
@@ -68,8 +73,9 @@ function getMapping (plugModules) {
   })
 
   function find (arr, fn) {
-    for (let i = 0, l = arr.length; i < l; i++)
+    for (let i = 0, l = arr.length; i < l; i++) {
       if (fn(arr[i])) return arr[i]
+    }
   }
   function contains (str) {
     return (src) => src.indexOf(str) > 0

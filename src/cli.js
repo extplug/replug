@@ -66,13 +66,16 @@ const progress = (text, size) =>
 function fetchAppFile (url) {
   return new Promise((resolve, reject) => {
     request(url, (e, res) => {
-      if (e) reject(e)
-      else   resolve(res && res.body)
+      if (e) {
+        reject(e)
+      } else {
+        resolve(res && res.body)
+      }
     })
-    .on('response', function (res) {
+    .on('response', (res) => {
       const size = parseInt(res.headers['content-length'], 10)
       const bar = progress('downloading app javascript...', size)
-      res.on('data', chunk => bar.tick(chunk.length))
+      res.on('data', (chunk) => bar.tick(chunk.length))
     })
   })
 }
@@ -115,8 +118,7 @@ function parseModules (str) {
         let [ name, deps, factory ] = node.arguments
         if (t.isArrayExpression(deps)) {
           deps = deps.elements
-        }
-        else {
+        } else {
           factory = deps
           deps = []
         }
@@ -134,7 +136,9 @@ function parseModules (str) {
         const file = new File()
         file.addAst(program)
         modules[name.value] = {
-          deps, file, code,
+          deps,
+          file,
+          code,
           ast: factory
         }
       }
@@ -160,7 +164,7 @@ function findReturnVar (ast) {
 function cleanModules (modules) {
   const names = Object.keys(modules)
   const bar = progress('cleaning module ASTs...', names.length)
-  names.forEach(name => {
+  names.forEach((name) => {
     cleanAst(modules[name].file.ast)
     bar.tick()
   })
@@ -170,9 +174,9 @@ function cleanModules (modules) {
 function remapModuleNames (modules, mapping) {
   const names = Object.keys(modules)
   const bar = progress('remapping module names...', names.length)
-  names.forEach(name => {
+  names.forEach((name) => {
     const { ast, deps } = modules[name]
-    const params = ast.params && ast.params.map(param => param.name)
+    const params = ast.params && ast.params.map((param) => param.name)
 
     if (!params) {
       return bar.tick()
@@ -180,17 +184,20 @@ function remapModuleNames (modules, mapping) {
     const renames = []
     // build ast of dependency require()s
     const depsAst = deps.map((dep, i) => {
-      if (!params[i]) params[i] = '__' + i
+      if (!params[i]) {
+        params[i] = '__' + i
+      }
+
       let newName = 'unknown'
       // rename variables according to their module names
       if (mapping[dep.value]) {
         newName = variableNameFor(dep.value, mapping)
         renames.push({ from: params[i], to: newName })
-      }
-      else if (/^hbs!templates\//.test(dep.value)) {
+      } else if (/^hbs!templates\//.test(dep.value)) {
         newName = 'template' + dep.value.split('/').pop()
         renames.push({ from: params[i], to: newName })
       }
+
       return t.variableDeclaration('var', [
         t.variableDeclarator(
           t.identifier(params[i]),
@@ -228,9 +235,11 @@ function remapModuleNames (modules, mapping) {
 }
 
 function getDependents (modules, name) {
-  const isDep = d => d.value === name
-  return Object.keys(modules)
-    .filter(name => modules[name].deps.some(isDep))
+  const isDep = (d) => d.value === name
+
+  return Object.keys(modules).filter((name) =>
+    modules[name].deps.some(isDep)
+  )
 }
 
 function findMemberExpressionName (ast) {
@@ -244,6 +253,7 @@ function findMemberExpressionName (ast) {
     }
   }
 }
+
 function addMappingForUnknownModules (modules, mapping) {
   for (const orig in mapping) {
     if (mapping[orig] === 'plug/server/socketReceiver') {
@@ -256,7 +266,7 @@ function addMappingForUnknownModules (modules, mapping) {
       // and which can also be identified by plug-modules. here, we
       // can find all modules that depend on socketReceiver, and find
       // the relevant assignments.
-      getDependents(modules, orig).forEach(name => {
+      getDependents(modules, orig).forEach((name) => {
         const prop = findMemberExpressionName(modules[name].ast.body)
         if (prop) {
           // some of these modules have multiple event receivers, so we
@@ -278,9 +288,8 @@ function addMappingForUnknownModules (modules, mapping) {
           mapping[name] = niceName
         }
       })
-    }
-    else if (mapping[orig] === 'plug/util/API') {
-      getDependents(modules, orig).forEach(name => {
+    } else if (mapping[orig] === 'plug/util/API') {
+      getDependents(modules, orig).forEach((name) => {
         const prop = findMemberExpressionName(modules[name].ast.body)
         if (prop) {
           const niceName = {
@@ -324,10 +333,10 @@ function processRenames (ast, renames) {
   return ast
 }
 
-function extract(modules, mapping) {
+function extract (modules, mapping) {
   const moduleNames = Object.keys(modules)
   const bar = progress('extracting files...', moduleNames.length)
-  return Promise.each(moduleNames, name => {
+  return Promise.each(moduleNames, (name) => {
     const mod = modules[name]
     const ast = t.program([
       t.expressionStatement(
@@ -355,15 +364,16 @@ function outputFile (name, mapping, code) {
     // set up symlinks from nicer paths
     if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
       const niceFile = path.join(program.out, `${mapping[name]}.js`)
-      return program.copy?   writeFile(niceFile, code.code)
-           : /* otherwise */ makeLink(file, niceFile)
+      return program.copy
+        ? writeFile(niceFile, code.code)
+        : makeLink(file, niceFile)
     }
   })
 }
 
 function makeLink (file, niceFile) {
   // cheaty use of path.relative to find link target path
-  const linkTarget = path.relative('/' + path.dirname(niceFile), '/' + file)
+  const linkTarget = path.relative('/' + path.dirname(niceFile), `/${file}`)
   return mkdirp(path.dirname(niceFile))
     .then(() => fs.symlink(linkTarget, niceFile))
 }
@@ -382,23 +392,22 @@ function run (mapping, str) {
       fs.writeFile(path.join(program.out, 'mapping.json'),
                    JSON.stringify(mapping, null, 2))
     )
-    .then(() => outputFile('version', {}, 'window._v = \'' + _v + '\';'))
-    .then(() => console.log('v' + _v + ' done'))
+    .then(() => outputFile('version', {}, `window._v = '${_v}';`))
+    .then(() => console.log(`v${_v} done`))
 }
 
 let mappingString
 if (program.mapping) {
   mappingString = fs.readFile(program.mapping, 'utf-8')
-}
-else {
+} else {
   process.stdout.write('logging in to create mapping...')
   mappingString = guestLogin(requestOpts)
-    .then(result => {
+    .then((result) => {
       console.log('  logged in to plug.dj')
       process.stdout.write('generating mapping...')
       return createMappingFile(result.jar)
     })
-    .catch(err => {
+    .catch((err) => {
       console.log('')
       console.error('Could not log in.')
       console.error(err.stack || err.message || err)
@@ -407,7 +416,7 @@ else {
 
 mappingString
   .then(JSON.parse)
-  .then(result => {
+  .then((result) => {
     const mapping = result.mapping
     const sourceFile = result.appUrl
     // global!
@@ -415,9 +424,10 @@ mappingString
 
     return Promise.props({
       mapping,
-      src: /^https?:/.test(sourceFile)? fetchAppFile(sourceFile)
-           : /* otherwise */            fs.readFile(sourceFile, 'utf-8')
+      src: /^https?:/.test(sourceFile)
+        ? fetchAppFile(sourceFile)
+        : fs.readFile(sourceFile, 'utf-8')
     })
   })
-  .then(o => run(o.mapping, o.src))
-  .catch(e => { throw e })
+  .then((o) => run(o.mapping, o.src))
+  .catch((e) => { throw e })

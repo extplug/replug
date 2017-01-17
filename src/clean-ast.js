@@ -2,7 +2,7 @@ import traverse from 'babel-traverse'
 import * as t from 'babel-types'
 
 // expand ternary expression statements into if(){}else{} blocks
-const expandTernary = expr =>
+const expandTernary = (expr) =>
   t.ifStatement(
     expr.test,
     t.expressionStatement(expr.consequent),
@@ -12,7 +12,7 @@ const expandTernary = expr =>
   )
 
 // expand `a && b`, `a || b` expressions into `if (a) b`, `if (!a) b` statements.
-const expandAndOr = expr => {
+const expandAndOr = (expr) => {
   if (expr.operator === '&&') {
     return t.ifStatement(
       expr.left,
@@ -27,7 +27,7 @@ const expandAndOr = expr => {
       t.expressionStatement(expr.right)
     )
   }
-  return node
+  return expr
 }
 
 const astReplacer = {
@@ -59,7 +59,7 @@ const astReplacer = {
     // expand comma-separated expressions on a single line to multiple statements
     if (t.isSequenceExpression(path.node.expression)) {
       return path.replaceWithMultiple(
-        path.node.expression.expressions.map(expr =>
+        path.node.expression.expressions.map((expr) =>
           t.expressionStatement(expr)
         )
       )
@@ -81,7 +81,7 @@ const astReplacer = {
     if (t.isSequenceExpression(path.node.argument)) {
       const exprs = path.node.argument.expressions
       const last = exprs.pop()
-      path.insertBefore(exprs.map(expr => t.expressionStatement(expr)))
+      path.insertBefore(exprs.map((expr) => t.expressionStatement(expr)))
       path.get('argument').replaceWith(last)
       return
     }
