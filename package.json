@@ -14,14 +14,14 @@
     "bluebird": "^3.3.5",
     "browser-resolve": "^1.11.2",
     "commander": "2.x",
+    "got": "^6.7.1",
     "jsdom": ">=6.x",
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
     "object-assign": "^4.0.1",
     "plug-login": "^1.0.1",
     "plug-modules": ">=5.0.0",
-    "progress": "1.x",
-    "request": "*"
+    "progress": "1.x"
   },
   "devDependencies": {
     "babel-cli": "^6.3.17",

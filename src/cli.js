@@ -4,7 +4,6 @@ import assign from 'object-assign'
 import Promise from 'bluebird'
 import program from 'commander'
 import ProgressBar from 'progress'
-import request from 'request'
 import { parse } from 'babylon'
 import File from 'babel-core/lib/transformation/file'
 import traverse from 'babel-traverse'
@@ -14,6 +13,7 @@ import path from 'path'
 import mkdirp from 'mkdirp-then'
 import fs from 'mz/fs'
 import login from 'plug-login'
+import got from 'got'
 
 import pkg from '../package.json'
 import cleanAst from './clean-ast'
@@ -59,18 +59,20 @@ const progress = (text, size) =>
 
 function fetchAppFile (url) {
   return new Promise((resolve, reject) => {
-    request(url, (e, res) => {
-      if (e) {
-        reject(e)
-      } else {
-        resolve(res && res.body)
-      }
-    })
-    .on('response', (res) => {
+    let contents = ''
+
+    const stream = got.stream(url)
+    stream.on('response', (res) => {
       const size = parseInt(res.headers['content-length'], 10)
       const bar = progress('downloading app javascript...', size)
-      res.on('data', (chunk) => bar.tick(chunk.length))
+      stream.on('data', (chunk) => {
+        bar.tick(chunk.length)
+        contents += chunk.toString('utf8')
+      })
     })
+
+    stream.on('error', reject)
+    stream.on('end', () => resolve(contents))
   })
 }
 
@@ -399,9 +401,7 @@ if (program.mapping) {
     .then((result) => {
       console.log('  logged in to plug.dj')
       process.stdout.write('generating mapping...')
-      const jar = request.jar()
-      jar.setCookie(request.cookie(result.cookie), 'https://plug.dj')
-      return createMappingFile(jar)
+      return createMappingFile(result.cookie)
     })
     .catch((err) => {
       console.log('')

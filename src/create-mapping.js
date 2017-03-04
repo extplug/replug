@@ -73,7 +73,7 @@ function waitForRequireJs (window) {
 // environment (aka jsdom).
 // You need to be logged in to run plug-modules, so pass in a cookie jar with
 // a valid session cookie.
-export default function createMapping (jar, cb) {
+export default function createMapping (cookie, cb) {
   const reqAsync = (req, id) => new Promise((resolve, reject) => req(id, resolve, reject))
 
   return readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8')
@@ -81,7 +81,7 @@ export default function createMapping (jar, cb) {
       jsdomEnv({
         url: 'https://plug.dj/plug-socket-test',
         headers: {
-          Cookie: jar.getCookieString('https://plug.dj/')
+          Cookie: cookie
         },
         features: {
           FetchExternalResources: [ 'script' ],
