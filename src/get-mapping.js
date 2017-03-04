@@ -52,17 +52,15 @@ function getMapping (plugModules) {
     fullMapping[mod.original] = mod.name
   })
 
-  const scriptSources = $('script[src*="cdn.plug"]').map(function () {
-    return this.src
-  })
+  const scriptSources = $('script[src*="cdn.plug"]').toArray().map((el) => el.src)
 
   // get plug.dj version (it appears in one of the inline <script> tags)
   const js = $('script:not([src])').text()
   const version = /_v="(.*?)"/.exec(js)[1]
 
-  const appUrl = find(scriptSources, contains('js/app'))
-  const langUrl = find(scriptSources, contains('js/lang/'))
-  const avatarsUrl = find(scriptSources, contains('js/avatars'))
+  const appUrl = scriptSources.find(contains('js/app'))
+  const langUrl = scriptSources.find(contains('js/lang/'))
+  const avatarsUrl = scriptSources.find(contains('js/avatars'))
 
   return JSON.stringify({
     version: version,
@@ -72,11 +70,6 @@ function getMapping (plugModules) {
     mapping: fullMapping
   })
 
-  function find (arr, fn) {
-    for (let i = 0, l = arr.length; i < l; i++) {
-      if (fn(arr[i])) return arr[i]
-    }
-  }
   function contains (str) {
     return (src) => src.indexOf(str) > 0
   }
