@@ -1,3 +1,4 @@
+const Listr = require('listr')
 const assign = require('object-assign')
 const joinPath = require('path').join
 const jsdom = require('jsdom')
@@ -73,36 +74,51 @@ function waitForRequireJs (window) {
 // environment (aka jsdom).
 // You need to be logged in to run plug-modules, so pass in a cookie jar with
 // a valid session cookie.
-module.exports = function createMapping (cookie, cb) {
+module.exports = function createMapping (cookie, ctx) {
   const reqAsync = (req, id) => new Promise((resolve, reject) => req(id, resolve, reject))
 
-  return readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8')
-    .then((getMappingSrc) =>
-      jsdomEnv({
-        url: 'https://plug.dj/plug-socket-test',
-        headers: {
-          Cookie: cookie
-        },
-        features: {
-          FetchExternalResources: [ 'script' ],
-          ProcessExternalResources: [ 'script' ]
-        },
-        src: [ getMappingSrc ]
-      })
-    )
-    .tap((window) => {
-      // stub out some objects that plug needs at boot time
-      assign(window, stubs)
-      return waitForRequireJs(window)
-    })
-    .then((window) =>
-      readFile(pmPath, 'utf-8')
+  return new Listr([
+    {
+      title: 'Opening plug.dj',
+      task: (ctx) =>
+        readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8').then((getMappingSrc) => 
+          jsdomEnv({
+            url: 'https://plug.dj/plug-socket-test',
+            headers: {
+              Cookie: cookie
+            },
+            features: {
+              FetchExternalResources: [ 'script' ],
+              ProcessExternalResources: [ 'script' ]
+            },
+            src: [ getMappingSrc ]
+          }).then((window) => {
+            ctx.window = window
+            // stub out some objects that plug needs at boot time
+            assign(window, stubs)
+          })
+        )
+    },
+    {
+      title: 'Waiting for plug.dj to finish loading',
+      task: (ctx) => waitForRequireJs(ctx.window)
+    },
+    {
+      title: 'Running plug-modules',
+      task: (ctx) => readFile(pmPath, 'utf-8')
         // ensure that plugModules defines itself as "plug-modules"
         .then((plugModules) => plugModules.replace('define([', 'define("plug-modules",['))
         // insert plug-modules
-        .then((src) => window.eval(src))
-        .then(() => reqAsync(window.requirejs, [ 'plug-modules' ]))
-        .then((pm) => window.getMapping(pm))
-        .tap(() => window.close())
-    )
+        .then((src) => ctx.window.eval(src))
+        .then(() => reqAsync(ctx.window.requirejs, [ 'plug-modules' ]))
+        .then((pm) => ctx.window.getMapping(pm))
+        .tap(() => ctx.window.close())
+        .then(JSON.parse)
+        .then((result) => {
+          ctx.window = null
+          ctx.mapping = result.mapping
+          ctx.appUrl = result.appUrl
+        })
+    }
+  ], { context: ctx })
 }
