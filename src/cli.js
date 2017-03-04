@@ -19,8 +19,6 @@ import pkg from '../package.json'
 import cleanAst from './clean-ast'
 import createMappingFile from './create-mapping'
 
-const guestLogin = Promise.promisify(login.guest)
-
 let _v
 
 program
@@ -41,10 +39,6 @@ const babelGenOptions = {
   indent: {
     style: '  '
   }
-}
-
-const requestOpts = {
-  headers: { 'user-agent': 'replug' }
 }
 
 const moduleComment = (mapping, name) => ({
@@ -401,11 +395,13 @@ if (program.mapping) {
   mappingString = fs.readFile(program.mapping, 'utf-8')
 } else {
   process.stdout.write('logging in to create mapping...')
-  mappingString = guestLogin(requestOpts)
+  mappingString = login.guest()
     .then((result) => {
       console.log('  logged in to plug.dj')
       process.stdout.write('generating mapping...')
-      return createMappingFile(result.jar)
+      const jar = request.jar()
+      jar.setCookie(request.cookie(result.cookie), 'https://plug.dj')
+      return createMappingFile(jar)
     })
     .catch((err) => {
       console.log('')
