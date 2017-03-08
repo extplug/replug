@@ -1,5 +1,5 @@
-import traverse from 'babel-traverse'
-import * as t from 'babel-types'
+const traverse = require('babel-traverse')
+const t = require('babel-types')
 
 // expand ternary expression statements into if(){}else{} blocks
 const expandTernary = (expr) =>
@@ -98,7 +98,7 @@ const astReplacer = {
   }
 }
 
-export default function cleanAst (file) {
+module.exports = function cleanAst (file) {
   traverse(file, astReplacer)
   return file
 }

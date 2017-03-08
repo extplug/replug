@@ -2,4 +2,4 @@
 
 global.Promise = require('bluebird')
 
-require('./lib/cli')
+require('./src/cli')

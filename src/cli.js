@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 
-import assign from 'object-assign'
-import Promise from 'bluebird'
-import program from 'commander'
-import ProgressBar from 'progress'
-import { parse } from 'babylon'
-import File from 'babel-core/lib/transformation/file'
-import traverse from 'babel-traverse'
-import generate from 'babel-generator'
-import * as t from 'babel-types'
-import path from 'path'
-import mkdirp from 'mkdirp-then'
-import fs from 'mz/fs'
-import login from 'plug-login'
-import got from 'got'
+const assign = require('object-assign')
+const Promise = require('bluebird')
+const program = require('commander')
+const ProgressBar = require('progress')
+const { parse } = require('babylon')
+const File = require('babel-core/lib/transformation/file')
+const traverse = require('babel-traverse')
+const generate = require('babel-generator')
+const t = require('babel-types')
+const path = require('path')
+const mkdirp = require('mkdirp-then')
+const fs = require('mz/fs')
+const login = require('plug-login')
+const got = require('got')
 
-import pkg from '../package.json'
-import cleanAst from './clean-ast'
-import createMappingFile from './create-mapping'
+const pkg = require('../package.json')
+const cleanAst = require('./clean-ast')
+const createMappingFile = require('./create-mapping')
 
 let _v
 

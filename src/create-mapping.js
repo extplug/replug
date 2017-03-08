@@ -1,9 +1,9 @@
-import assign from 'object-assign'
-import { join as joinPath } from 'path'
-import jsdom from 'jsdom'
-import bresolve from 'browser-resolve'
-import Promise from 'bluebird'
-import { readFile } from 'mz/fs'
+const assign = require('object-assign')
+const joinPath = require('path').join
+const jsdom = require('jsdom')
+const bresolve = require('browser-resolve')
+const Promise = require('bluebird')
+const readFile = require('mz/fs').readFile
 
 const pmPath = bresolve.sync('plug-modules', { filename: __filename })
 
@@ -73,7 +73,7 @@ function waitForRequireJs (window) {
 // environment (aka jsdom).
 // You need to be logged in to run plug-modules, so pass in a cookie jar with
 // a valid session cookie.
-export default function createMapping (cookie, cb) {
+module.exports = function createMapping (cookie, cb) {
   const reqAsync = (req, id) => new Promise((resolve, reject) => req(id, resolve, reject))
 
   return readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8')
