@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
-const assign = require('object-assign')
+const Listr = require('listr')
+const updateRenderer = require('listr-update-renderer')
+const chalk = require('chalk')
 const Promise = require('bluebird')
+const Observable = require('rxjs/observable/from')
 const program = require('commander')
-const ProgressBar = require('progress')
 const { parse } = require('babylon')
-const File = require('babel-core/lib/transformation/file')
-const traverse = require('babel-traverse')
-const generate = require('babel-generator')
+const { File } = require('babel-core')
+const traverse = require('babel-traverse').default
+const generate = require('babel-generator').default
 const t = require('babel-types')
 const path = require('path')
 const mkdirp = require('mkdirp-then')
@@ -46,33 +48,25 @@ const moduleComment = (mapping, name) => ({
   value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
 })
 
-const progress = (text, size) =>
-  new ProgressBar(`${text} [:bar] :percent`, {
-    total: size,
-    width: 40,
-    complete: '#',
-    clear: true,
-    callback () {
-      console.log(`${text} done`)
-    }
-  })
-
-function fetchAppFile (url) {
+function fetchAppFile (url, progress) {
   return new Promise((resolve, reject) => {
     let contents = ''
 
     const stream = got.stream(url)
     stream.on('response', (res) => {
       const size = parseInt(res.headers['content-length'], 10)
-      const bar = progress('downloading app javascript...', size)
+      progress(0, size)
       stream.on('data', (chunk) => {
-        bar.tick(chunk.length)
         contents += chunk.toString('utf8')
+        progress(contents.length, size)
       })
     })
 
     stream.on('error', reject)
-    stream.on('end', () => resolve(contents))
+    stream.on('end', () => {
+      progress(contents.length, contents.length)
+      resolve(contents)
+    })
   })
 }
 
@@ -104,10 +98,9 @@ function sliceTokens (tokens, loc) {
   return tokens.slice(start, end)
 }
 
-function parseModules (str) {
+function parseModules (str, progress) {
   const ast = parse(str)
   const modules = {}
-  process.stdout.write('parsing javascript...')
   traverse(ast, {
     CallExpression ({ node }) {
       if (t.isIdentifier(node.callee, { name: 'define' })) {
@@ -131,6 +124,7 @@ function parseModules (str) {
 
         const file = new File()
         file.addAst(program)
+        progress(name.value)
         modules[name.value] = {
           deps,
           file,
@@ -140,8 +134,8 @@ function parseModules (str) {
       }
     }
   })
-  console.log(' done')
 
+  progress(null)
   return modules
 }
 
@@ -157,26 +151,28 @@ function findReturnVar (ast) {
   }
 }
 
-function cleanModules (modules) {
+function* cleanModules (modules, progress) {
   const names = Object.keys(modules)
-  const bar = progress('cleaning module ASTs...', names.length)
-  names.forEach((name) => {
+  for (let i = 0; i < names.length; i += 1) {
     cleanAst(modules[name].file.ast)
-    bar.tick()
-  })
-  return modules
+
+    yield progress(i + 1, names.length)
+  }
 }
 
-function remapModuleNames (modules, mapping) {
+function* remapModuleNames (modules, mapping, progress) {
   const names = Object.keys(modules)
-  const bar = progress('remapping module names...', names.length)
-  names.forEach((name) => {
+
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
     const { ast, deps } = modules[name]
     const params = ast.params && ast.params.map((param) => param.name)
 
     if (!params) {
-      return bar.tick()
+      yield progress(index + 1, names.length)
+      continue
     }
+
     const renames = []
     // build ast of dependency require()s
     const depsAst = deps.map((dep, i) => {
@@ -198,7 +194,7 @@ function remapModuleNames (modules, mapping) {
         t.variableDeclarator(
           t.identifier(params[i]),
           t.callExpression(t.identifier('require'), [
-            assign(dep, {
+            Object.assign(dep, {
               trailingComments: [ moduleComment(mapping, dep.value) ]
             })
           ])
@@ -224,10 +220,9 @@ function remapModuleNames (modules, mapping) {
     }
 
     processRenames(modules[name].file.ast, renames)
-    bar.tick()
-  })
 
-  return modules
+    yield progress(index + 1, names.length)
+  }
 }
 
 function getDependents (modules, name) {
@@ -329,24 +324,24 @@ function processRenames (ast, renames) {
   return ast
 }
 
-function extract (modules, mapping) {
+function extract (modules, mapping, progress) {
   const moduleNames = Object.keys(modules)
-  const bar = progress('extracting files...', moduleNames.length)
-  return Promise.each(moduleNames, (name) => {
+  return Promise.each(moduleNames, (name, i) => {
     const mod = modules[name]
     const ast = t.program([
       t.expressionStatement(
         t.callExpression(t.identifier('define'), [
-          assign(t.stringLiteral(name), {
+          Object.assign(t.stringLiteral(name), {
             trailingComments: [ moduleComment(mapping, name) ]
           }),
           mod.ast
         ])
       )
     ])
-    return outputFile(name, mapping, generate(ast, babelGenOptions, mod.code))
-      .tap(bar.tick.bind(bar))
-  }).return(modules)
+    return outputFile(name, mapping, generate(ast, babelGenOptions, mod.code)).then(() => {
+      progress(i + 1, moduleNames.length)
+    })
+  })
 }
 
 function writeFile (name, content) {
@@ -374,56 +369,80 @@ function makeLink (file, niceFile) {
     .then(() => fs.symlink(linkTarget, niceFile))
 }
 
-function run (mapping, str) {
-  let modules = parseModules(str)
-  console.log('found', Object.keys(modules).length, 'modules.')
-  modules = cleanModules(modules)
-  addMappingForUnknownModules(modules, mapping)
-  modules = remapModuleNames(modules, mapping)
-  extract(modules, mapping)
-    .tap(() => program.saveSource &&
-      fs.writeFile(path.join(program.out, 'source.js'), str)
-    )
-    .tap(() => program.saveMapping &&
-      fs.writeFile(path.join(program.out, 'mapping.json'),
-                   JSON.stringify(mapping, null, 2))
-    )
-    .then(() => outputFile('version', {}, `window._v = '${_v}';`))
-    .then(() => console.log(`v${_v} done`))
+function progress (task) {
+  const title = task.title
+  return (current, total) => {
+    if (typeof current === 'string') {
+      task.title = `${title} ${chalk.gray(current)}`
+    } else if (typeof current === 'number' && current < total) {
+      const percent = chalk.gray(`${Math.floor((current / total) * 100)}%`)
+      task.title = `${title} ${percent}`
+    } else {
+      task.title = title
+    }
+  }
 }
 
-let mappingString
-if (program.mapping) {
-  mappingString = fs.readFile(program.mapping, 'utf-8')
-} else {
-  process.stdout.write('logging in to create mapping...')
-  mappingString = login.guest()
-    .then((result) => {
-      console.log('  logged in to plug.dj')
-      process.stdout.write('generating mapping...')
-      return createMappingFile(result.cookie)
+const main = new Listr([
+  {
+    title: 'Logging in to plug.dj',
+    task: (ctx) =>
+      login.guest().tap((result) => {
+        ctx.session = result
+      })
+  },
+  {
+    title: 'Generating module name mapping',
+    task: (ctx) => createMappingFile(ctx.session.cookie, ctx)
+  },
+  {
+    title: 'Downloading application file',
+    task: (ctx, task) => fetchAppFile(ctx.appUrl, progress(task)).then((src) => {
+      ctx.src = src
     })
-    .catch((err) => {
-      console.log('')
-      console.error('Could not log in.')
-      console.error(err.stack || err.message || err)
+  },
+  {
+    title: 'Parsing modules',
+    task: (ctx, task) => Promise.delay(100).then(() => {
+      ctx.modules = parseModules(ctx.src, progress(task))
+    }).delay(100)
+  },
+  {
+    title: 'Cleaning modules',
+    task: (ctx, task) => Observable.from(
+      cleanModules(ctx.modules, progress(task))
+    )
+  },
+  {
+    title: 'Finding correct names for special modules',
+    task: (ctx) => Promise.resolve().then(() => {
+      addMappingForUnknownModules(ctx.modules, ctx.mapping)
     })
-}
+  },
+  {
+    title: 'Remapping module names',
+    task: (ctx, task) => Observable.from(
+      remapModuleNames(ctx.modules, ctx.mapping, progress(task))
+    )
+  },
+  {
+    title: 'Extracting files',
+    task: (ctx, task) =>
+      extract(ctx.modules, ctx.mapping, progress(task))
+        .tap(() => program.saveSource &&
+          fs.writeFile(path.join(program.out, 'source.js'), ctx.src)
+        )
+        .tap(() => program.saveMapping &&
+          fs.writeFile(path.join(program.out, 'mapping.json'),
+                      JSON.stringify(ctx.mapping, null, 2))
+        )
+        .then(() => outputFile('version', {}, `window._v = '${_v}';`))
+        .then(() => console.log(`v${_v} done`))
+  }
+], { renderer: updateRenderer })
 
-mappingString
-  .then(JSON.parse)
-  .then((result) => {
-    const mapping = result.mapping
-    const sourceFile = result.appUrl
-    // global!
-    _v = result.version
-
-    return Promise.props({
-      mapping,
-      src: /^https?:/.test(sourceFile)
-        ? fetchAppFile(sourceFile)
-        : fs.readFile(sourceFile, 'utf-8')
-    })
+main.run().catch((e) => {
+  setImmediate(() => {
+    throw e
   })
-  .then((o) => run(o.mapping, o.src))
-  .catch((e) => { throw e })
+})

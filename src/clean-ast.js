@@ -1,4 +1,4 @@
-const traverse = require('babel-traverse')
+const traverse = require('babel-traverse').default
 const t = require('babel-types')
 
 // expand ternary expression statements into if(){}else{} blocks
