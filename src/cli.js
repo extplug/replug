@@ -3,7 +3,6 @@
 const Listr = require('listr')
 const updateRenderer = require('listr-update-renderer')
 const chalk = require('chalk')
-const assign = require('object-assign')
 const Promise = require('bluebird')
 const program = require('commander')
 const { parse } = require('babylon')
@@ -192,7 +191,7 @@ function remapModuleNames (modules, mapping, progress) {
         t.variableDeclarator(
           t.identifier(params[i]),
           t.callExpression(t.identifier('require'), [
-            assign(dep, {
+            Object.assign(dep, {
               trailingComments: [ moduleComment(mapping, dep.value) ]
             })
           ])
@@ -329,7 +328,7 @@ function extract (modules, mapping, progress) {
     const ast = t.program([
       t.expressionStatement(
         t.callExpression(t.identifier('define'), [
-          assign(t.stringLiteral(name), {
+          Object.assign(t.stringLiteral(name), {
             trailingComments: [ moduleComment(mapping, name) ]
           }),
           mod.ast

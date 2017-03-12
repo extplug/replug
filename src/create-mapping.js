@@ -1,5 +1,4 @@
 const Listr = require('listr')
-const assign = require('object-assign')
 const joinPath = require('path').join
 const jsdom = require('jsdom')
 const bresolve = require('browser-resolve')
@@ -63,7 +62,7 @@ function waitForRequireJs (window) {
           }
           return orig.apply(window, arguments)
         }
-        assign(window.require, orig)
+        Object.assign(window.require, orig)
       }
     }
   })
@@ -95,7 +94,7 @@ module.exports = function createMapping (cookie, ctx) {
           }).then((window) => {
             ctx.window = window
             // stub out some objects that plug needs at boot time
-            assign(window, stubs)
+            Object.assign(window, stubs)
           })
         )
     },

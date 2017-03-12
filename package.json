@@ -24,7 +24,6 @@
     "listr-update-renderer": "^0.2.0",
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
-    "object-assign": "^4.0.1",
     "plug-login": "^1.0.1",
     "plug-modules": "^5.0.0",
     "progress": "^1.1.8",
