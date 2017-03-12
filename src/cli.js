@@ -427,7 +427,7 @@ const main = new Listr([
     task: (ctx, task) =>
       extract(ctx.modules, ctx.mapping, progress(task))
         .tap(() => program.saveSource &&
-          fs.writeFile(path.join(program.out, 'source.js'), str)
+          fs.writeFile(path.join(program.out, 'source.js'), ctx.src)
         )
         .tap(() => program.saveMapping &&
           fs.writeFile(path.join(program.out, 'mapping.json'),

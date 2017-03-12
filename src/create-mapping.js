@@ -80,7 +80,7 @@ module.exports = function createMapping (cookie, ctx) {
     {
       title: 'Opening plug.dj',
       task: (ctx) =>
-        readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8').then((getMappingSrc) => 
+        readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8').then((getMappingSrc) =>
           jsdomEnv({
             url: 'https://plug.dj/plug-socket-test',
             headers: {
