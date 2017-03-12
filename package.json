@@ -9,11 +9,11 @@
     "node": ">= 7.7"
   },
   "dependencies": {
-    "babel-core": "^6.9.1",
-    "babel-generator": "^6.3.21",
-    "babel-traverse": "^6.3.21",
-    "babel-types": "^6.3.21",
-    "babylon": "^6.3.21",
+    "babel-core": "^7.0.0-alpha.2",
+    "babel-generator": "^7.0.0-alpha.1",
+    "babel-traverse": "^7.0.0-alpha.1",
+    "babel-types": "^7.0.0-alpha.1",
+    "babylon": "^7.0.0-alpha.1",
     "bluebird": "^3.3.5",
     "browser-resolve": "^1.11.2",
     "chalk": "^1.1.3",
