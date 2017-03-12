@@ -4,6 +4,7 @@ const Listr = require('listr')
 const updateRenderer = require('listr-update-renderer')
 const chalk = require('chalk')
 const Promise = require('bluebird')
+const Observable = require('rxjs/observable/from')
 const program = require('commander')
 const { parse } = require('babylon')
 const { File } = require('babel-core')
@@ -150,24 +151,26 @@ function findReturnVar (ast) {
   }
 }
 
-function cleanModules (modules, progress) {
+function* cleanModules (modules, progress) {
   const names = Object.keys(modules)
-  return Promise.each(names, (name, i) => {
+  for (let i = 0; i < names.length; i += 1) {
     cleanAst(modules[name].file.ast)
-    progress(i + 1, names.length)
-  })
+
+    yield progress(i + 1, names.length)
+  }
 }
 
-function remapModuleNames (modules, mapping, progress) {
+function* remapModuleNames (modules, mapping, progress) {
   const names = Object.keys(modules)
 
-  return Promise.each(names, (name, index) => {
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
     const { ast, deps } = modules[name]
     const params = ast.params && ast.params.map((param) => param.name)
 
     if (!params) {
-      progress(index + 1, names.length)
-      return
+      yield progress(index + 1, names.length)
+      continue
     }
 
     const renames = []
@@ -218,8 +221,8 @@ function remapModuleNames (modules, mapping, progress) {
 
     processRenames(modules[name].file.ast, renames)
 
-    progress(index + 1, names.length)
-  })
+    yield progress(index + 1, names.length)
+  }
 }
 
 function getDependents (modules, name) {
@@ -400,15 +403,15 @@ const main = new Listr([
   },
   {
     title: 'Parsing modules',
-    task: (ctx, task) => Promise.resolve().then(() => {
+    task: (ctx, task) => Promise.delay(100).then(() => {
       ctx.modules = parseModules(ctx.src, progress(task))
-    })
+    }).delay(100)
   },
   {
     title: 'Cleaning modules',
-    task: (ctx, task) => Promise.resolve().then(() => {
+    task: (ctx, task) => Observable.from(
       cleanModules(ctx.modules, progress(task))
-    })
+    )
   },
   {
     title: 'Finding correct names for special modules',
@@ -418,9 +421,9 @@ const main = new Listr([
   },
   {
     title: 'Remapping module names',
-    task: (ctx, task) => Promise.resolve().then(() => {
+    task: (ctx, task) => Observable.from(
       remapModuleNames(ctx.modules, ctx.mapping, progress(task))
-    })
+    )
   },
   {
     title: 'Extracting files',

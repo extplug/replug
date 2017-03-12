@@ -27,7 +27,8 @@
     "plug-login": "^1.0.1",
     "plug-modules": "^5.0.0",
     "progress": "^1.1.8",
-    "progress-string": "^1.2.1"
+    "progress-string": "^1.2.1",
+    "rxjs": "^5.2.0"
   },
   "devDependencies": {
     "standard": "^9.0.1"
