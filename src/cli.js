@@ -30,8 +30,6 @@ program
             '(optional, it\'s auto-generated if no file is given)')
   .option('-o, --out [dir]', 'Output directory [out/]', 'out/')
   .option('-c, --copy', 'Copy deobfuscated files instead of symlinking (nice for Windows)')
-  .option('--save-source', 'Copy the source javascript to the output directory')
-  .option('--save-mapping', 'Copy the mapping file to the output directory')
   .parse(process.argv)
 
 // formatting options! apparently like half of these get overridden though (?)
@@ -429,13 +427,9 @@ const main = new Listr([
     title: 'Extracting files',
     task: (ctx, task) =>
       extract(ctx.modules, ctx.mapping, progress(task))
-        .tap(() => program.saveSource &&
-          fs.writeFile(path.join(program.out, 'source.js'), ctx.src)
-        )
-        .tap(() => program.saveMapping &&
-          fs.writeFile(path.join(program.out, 'mapping.json'),
-                      JSON.stringify(ctx.mapping, null, 2))
-        )
+        .tap(() => fs.writeFile(path.join(program.out, 'source.js'), ctx.src))
+        .tap(() => fs.writeFile(path.join(program.out, 'mapping.json'),
+          JSON.stringify(ctx.mapping, null, 2)))
         .then(() => outputFile('version', {}, `window._v = '${_v}';`))
         .then(() => console.log(`v${_v} done`))
   }
