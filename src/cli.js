@@ -28,7 +28,6 @@ program
   .option('-m, --mapping [file]', 'File containing the mapping JSON ' +
             '(optional, it\'s auto-generated if no file is given)')
   .option('-o, --out [dir]', 'Output directory [out/]', 'out/')
-  .option('-c, --copy', 'Copy deobfuscated files instead of symlinking (nice for Windows)')
   .parse(process.argv)
 
 // formatting options! apparently like half of these get overridden though (?)
@@ -354,18 +353,9 @@ function outputFile (name, mapping, code) {
     // set up symlinks from nicer paths
     if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
       const niceFile = path.join(program.out, `${mapping[name]}.js`)
-      return program.copy
-        ? writeFile(niceFile, code.code)
-        : makeLink(file, niceFile)
+      return writeFile(niceFile, code.code)
     }
   })
-}
-
-function makeLink (file, niceFile) {
-  // cheaty use of path.relative to find link target path
-  const linkTarget = path.relative('/' + path.dirname(niceFile), `/${file}`)
-  return mkdirp(path.dirname(niceFile))
-    .then(() => fs.symlink(linkTarget, niceFile))
 }
 
 function progress (task) {
