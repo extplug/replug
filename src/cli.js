@@ -118,7 +118,10 @@ function parseModules (str, progress) {
           tokens
         )
 
-        const file = new File()
+        const file = new File({
+          options: {},
+          passes: []
+        })
         file.addAst(program)
         progress(name.value)
         modules[name.value] = {
