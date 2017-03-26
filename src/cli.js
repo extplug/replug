@@ -191,14 +191,22 @@ async function remapModuleNames (modules, mapping, progress) {
         renames.push({ from: params[i], to: newName })
       }
 
+      if (dep.value in mapping) {
+        const originalName = dep.value
+        dep.value = mapping[originalName]
+        dep.trailingComments = [
+          { type: 'Block', value: ` was ${originalName}` }
+        ]
+      } else {
+        dep.trailingComments = [
+          { type: 'Block', value: ' Unknown module' }
+        ]
+      }
+
       return t.variableDeclaration('var', [
         t.variableDeclarator(
           t.identifier(params[i]),
-          t.callExpression(t.identifier('require'), [
-            Object.assign(dep, {
-              trailingComments: [ moduleComment(mapping, dep.value) ]
-            })
-          ])
+          t.callExpression(t.identifier('require'), [dep])
         )
       ])
     })
@@ -329,12 +337,23 @@ function extract (modules, mapping, progress) {
   const moduleNames = Object.keys(modules)
   return Promise.each(moduleNames, (name, i) => {
     const mod = modules[name]
+
+    const moduleIdentifier = t.stringLiteral(name)
+    if (name in mapping) {
+      moduleIdentifier.value = mapping[name]
+      moduleIdentifier.trailingComments = [
+        { type: 'Block', value: ` was ${name}` }
+      ]
+    } else {
+      moduleIdentifier.trailingComments = [
+        { type: 'Block', value: ' Unknown module' }
+      ]
+    }
+
     const ast = t.program([
       t.expressionStatement(
         t.callExpression(t.identifier('define'), [
-          Object.assign(t.stringLiteral(name), {
-            trailingComments: [ moduleComment(mapping, name) ]
-          }),
+          moduleIdentifier,
           mod.ast
         ])
       )
