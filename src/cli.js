@@ -4,7 +4,6 @@ const Listr = require('listr')
 const updateRenderer = require('listr-update-renderer')
 const chalk = require('chalk')
 const Promise = require('bluebird')
-const Observable = require('rxjs/observable/from')
 const program = require('commander')
 const { parse } = require('babylon')
 const { File } = require('babel-core')
@@ -149,16 +148,18 @@ function findReturnVar (ast) {
   }
 }
 
-function* cleanModules (modules, progress) {
+async function cleanModules (modules, progress) {
   const names = Object.keys(modules)
   for (let i = 0; i < names.length; i += 1) {
+    const name = names[i];
+
     cleanAst(modules[name].file.ast)
 
-    yield progress(i + 1, names.length)
+    await progress(i + 1, names.length)
   }
 }
 
-function* remapModuleNames (modules, mapping, progress) {
+async function remapModuleNames (modules, mapping, progress) {
   const names = Object.keys(modules)
 
   for (let index = 0; index < names.length; index += 1) {
@@ -167,7 +168,7 @@ function* remapModuleNames (modules, mapping, progress) {
     const params = ast.params && ast.params.map((param) => param.name)
 
     if (!params) {
-      yield progress(index + 1, names.length)
+      await progress(index + 1, names.length)
       continue
     }
 
@@ -219,7 +220,7 @@ function* remapModuleNames (modules, mapping, progress) {
 
     processRenames(modules[name].file.ast, renames)
 
-    yield progress(index + 1, names.length)
+    await progress(index + 1, names.length)
   }
 }
 
@@ -407,21 +408,17 @@ const main = new Listr([
   },
   {
     title: 'Cleaning modules',
-    task: (ctx, task) => Observable.from(
-      cleanModules(ctx.modules, progress(task))
-    )
+    task: (ctx, task) => cleanModules(ctx.modules, progress(task))
   },
   {
     title: 'Finding correct names for special modules',
-    task: (ctx) => Promise.resolve().then(() => {
+    task: (ctx) => Promise.delay(100).then(() => {
       addMappingForUnknownModules(ctx.modules, ctx.mapping)
-    })
+    }).delay(100)
   },
   {
     title: 'Remapping module names',
-    task: (ctx, task) => Observable.from(
-      remapModuleNames(ctx.modules, ctx.mapping, progress(task))
-    )
+    task: (ctx, task) => remapModuleNames(ctx.modules, ctx.mapping, progress(task))
   },
   {
     title: 'Extracting files',
