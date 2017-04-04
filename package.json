@@ -28,7 +28,7 @@
     "mz": "^2.1.0",
     "plug-login": "^1.0.1",
     "plug-modules": "^5.0.0",
-    "progress": "^1.1.8",
+    "progress": "^2.0.0",
     "progress-string": "^1.2.1"
   },
   "devDependencies": {
