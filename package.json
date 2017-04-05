@@ -32,7 +32,7 @@
     "progress-string": "^1.2.1"
   },
   "devDependencies": {
-    "standard": "^9.0.1"
+    "standard": "^10.0.0"
   },
   "scripts": {
     "test": "standard src/*.js"
