@@ -1,5 +1,7 @@
 # non-lethal plug.dj reverse engineering
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/extplug/replug.svg)](https://greenkeeper.io/)
+
 A messy script that spews as-readable-as-computerly-possible versions of plug.dj
 modules into a directory.
 
