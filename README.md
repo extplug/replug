@@ -23,16 +23,12 @@ Or for source:
       -V, --version         output the version number
       -m, --mapping [file]  File containing the mapping JSON (optional, it's auto-generated if no file is given)
       -o, --out [dir]       Output directory [out/]
-      -c, --copy            Copy deobfuscated files instead of symlinking (nice for Windows)
-      --save-source         Copy the source javascript to the output directory
-      --save-mapping        Copy the mapping file to the output directory
 
 ### examples
 
 **Plain:**
 
-Dumps output in `out/`, and doesn't store the original JavaScript source or the
-mapping file.
+Dumps output in `out/`.
 
 ```
 replug
@@ -45,8 +41,7 @@ Outputs in `output-directory/`, and stores the original JavaScript source in
 plug.dj module names to readable module names.
 
 ```
-replug --out output-directory \
-  --save-source --save-mapping
+replug --out output-directory
 ```
 
 The easy way runs [`plug-modules`](https://github.com/ExtPlug/plug-modules)
