@@ -23,7 +23,7 @@
     "got": "^6.7.1",
     "is-async-supported": "^1.2.0",
     "jsdom": "^9.11.0",
-    "listr": "^0.11.0",
+    "listr": "^0.12.0",
     "listr-update-renderer": "^0.2.0",
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
