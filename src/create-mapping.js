@@ -1,6 +1,6 @@
 const Listr = require('listr')
-const joinPath = require('path').join
-const jsdom = require('jsdom')
+const got = require('got')
+const { JSDOM } = require('jsdom')
 const bresolve = require('browser-resolve')
 const Promise = require('bluebird')
 const readFile = require('mz/fs').readFile
@@ -25,19 +25,6 @@ const stubs = {
   FB: { init: function () {} }
 }
 
-function jsdomEnv (opts) {
-  return new Promise((resolve, reject) => {
-    opts.done = (e, window) => {
-      if (e) {
-        reject(e)
-      } else {
-        resolve(window)
-      }
-    }
-    jsdom.env(opts)
-  })
-}
-
 function waitForRequireJs (window) {
   return new Promise((resolve, reject) => {
     // wait for the app javascript to load, then run plug-modules
@@ -56,17 +43,19 @@ function waitForRequireJs (window) {
           if (Array.isArray(arg) && arg[0].indexOf('http') !== 0) {
             return orig(arg, () => {
               /* ... */
-              clearInterval(intv)
               resolve()
             })
           }
           return orig.apply(window, arguments)
         }
         Object.assign(window.require, orig)
+        clearInterval(intv)
       }
     }
   })
 }
+
+const PLUG_ROOM_URL = 'https://plug.dj/plug-socket-test'
 
 // Create a name mapping from plug.dj's obfuscated require.js module names to
 // readable names by running plug-modules in a headless browser-like
@@ -78,25 +67,34 @@ module.exports = function createMapping (cookie, ctx) {
 
   return new Listr([
     {
-      title: 'Opening plug.dj',
+      title: 'Loading plug.dj',
       task: (ctx) =>
-        readFile(joinPath(__dirname, './get-mapping.js'), 'utf-8').then((getMappingSrc) =>
-          jsdomEnv({
-            url: 'https://plug.dj/plug-socket-test',
-            headers: {
-              Cookie: cookie
-            },
-            features: {
-              FetchExternalResources: [ 'script' ],
-              ProcessExternalResources: [ 'script' ]
-            },
-            src: [ getMappingSrc ]
-          }).then((window) => {
-            ctx.window = window
-            // stub out some objects that plug needs at boot time
+        got(PLUG_ROOM_URL, {
+          headers: { cookie: cookie }
+        }).then((response) => {
+          ctx.source = response.body
+        })
+    },
+    {
+      title: 'Opening plug.dj',
+      task: (ctx) => {
+        ctx.dom = new JSDOM(ctx.source, {
+          url: PLUG_ROOM_URL,
+          runScripts: 'dangerously',
+          resources: 'usable',
+          beforeParse (window) {
             Object.assign(window, stubs)
-          })
-        )
+            ctx.window = window
+          }
+        })
+      }
+    },
+    {
+      title: 'Injecting module mapping helper',
+      task: (ctx) =>
+        readFile(require.resolve('./get-mapping'), 'utf8').then((source) => {
+          ctx.window.eval(source)
+        })
     },
     {
       title: 'Waiting for plug.dj to finish loading',
