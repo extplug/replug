@@ -153,7 +153,7 @@ function findReturnVar (ast) {
 async function cleanModules (modules, progress) {
   const names = Object.keys(modules)
   for (let i = 0; i < names.length; i += 1) {
-    const name = names[i];
+    const name = names[i]
 
     cleanAst(modules[name].file.ast)
 
@@ -165,7 +165,7 @@ async function remapModuleNames (modules, mapping, progress) {
   const names = Object.keys(modules)
 
   for (let index = 0; index < names.length; index += 1) {
-    const name = names[index];
+    const name = names[index]
     const { ast, deps } = modules[name]
     const params = ast.params && ast.params.map((param) => param.name)
 
