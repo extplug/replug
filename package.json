@@ -28,9 +28,7 @@
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
     "plug-login": "^1.0.1",
-    "plug-modules": "^5.0.0",
-    "progress": "^1.1.8",
-    "progress-string": "^1.2.1"
+    "plug-modules": "^5.0.0"
   },
   "devDependencies": {
     "standard": "^10.0.0"
