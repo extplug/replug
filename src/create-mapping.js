@@ -102,7 +102,7 @@ module.exports = function createMapping (cookie, ctx) {
     },
     {
       title: 'Running plug-modules',
-      task: (ctx) => readFile(pmPath, 'utf-8')
+      task: (ctx) => Promise.resolve(readFile(pmPath, 'utf-8'))
         // ensure that plugModules defines itself as "plug-modules"
         .then((plugModules) => plugModules.replace('define([', 'define("plug-modules",['))
         // insert plug-modules

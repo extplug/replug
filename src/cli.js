@@ -393,7 +393,7 @@ const main = new Listr([
   {
     title: 'Logging in to plug.dj',
     task: (ctx) =>
-      login.guest().tap((result) => {
+      Promise.resolve(login.guest()).tap((result) => {
         ctx.session = result
       })
   },
