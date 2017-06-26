@@ -39,11 +39,6 @@ const babelGenOptions = {
   }
 }
 
-const moduleComment = (mapping, name) => ({
-  type: 'Block',
-  value: ' ' + (name in mapping ? mapping[name] : 'Unknown module')
-})
-
 function fetchAppFile (url, progress) {
   return new Promise((resolve, reject) => {
     let contents = ''
