@@ -9,7 +9,7 @@ const program = require('commander')
 const { parse } = require('babylon')
 const { File } = require('babel-core')
 const traverse = require('babel-traverse').default
-const generate = require('babel-generator').default
+const generate = require('prettier').__debug.formatAST
 const t = require('babel-types')
 const path = require('path')
 const mkdirp = require('mkdirp-then')
@@ -31,15 +31,6 @@ program
   .option('-o, --out [dir]', 'Output directory [out/]', 'out/')
   .option('-v, --verbose', 'Use verbose output instead of bullet list', false)
   .parse(process.argv)
-
-// formatting options! apparently like half of these get overridden though (?)
-const babelGenOptions = {
-  comments: true,
-  quotes: 'single',
-  indent: {
-    style: '  '
-  }
-}
 
 function fetchAppFile (url, progress) {
   return new Promise((resolve, reject) => {
@@ -336,6 +327,7 @@ function extract (modules, mapping, progress) {
     const mod = modules[name]
 
     const moduleIdentifier = t.stringLiteral(name)
+    moduleIdentifier.raw = JSON.stringify(name)
     if (name in mapping) {
       moduleIdentifier.value = mapping[name]
       moduleIdentifier.trailingComments = [
@@ -355,7 +347,8 @@ function extract (modules, mapping, progress) {
         ])
       )
     ])
-    return outputFile(name, mapping, generate(ast, babelGenOptions, mod.code)).then(() => {
+    const code = generate(ast, { originalText: '', singleQuote: true })
+    return outputFile(name, mapping, code.formatted).then(() => {
       progress(i + 1, moduleNames.length)
     })
   })
@@ -368,11 +361,11 @@ function writeFile (name, content) {
 
 function outputFile (name, mapping, code) {
   const file = path.join(program.out, `${name}.js`)
-  return writeFile(file, code.code).then(() => {
+  return writeFile(file, code).then(() => {
     // set up symlinks from nicer paths
     if (mapping[name] && mapping[name].indexOf('plug/') === 0) {
       const niceFile = path.join(program.out, `${mapping[name]}.js`)
-      return writeFile(niceFile, code.code)
+      return writeFile(niceFile, code)
     }
   })
 }
