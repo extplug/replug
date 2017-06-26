@@ -10,6 +10,6 @@ before_install:
 before_script:
   - greenkeeper-lockfile-update
 script:
-  - node ./index.js
+  - node ./index.js --verbose
 after_script:
   - greenkeeper-lockfile-upload

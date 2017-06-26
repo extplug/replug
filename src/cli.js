@@ -2,6 +2,7 @@
 
 const Listr = require('listr')
 const updateRenderer = require('listr-update-renderer')
+const verboseRenderer = require('listr-verbose-renderer')
 const chalk = require('chalk')
 const Promise = require('bluebird')
 const program = require('commander')
@@ -28,6 +29,7 @@ program
   .option('-m, --mapping [file]', 'File containing the mapping JSON ' +
             '(optional, it\'s auto-generated if no file is given)')
   .option('-o, --out [dir]', 'Output directory [out/]', 'out/')
+  .option('-v, --verbose', 'Use verbose output instead of bullet list', false)
   .parse(process.argv)
 
 // formatting options! apparently like half of these get overridden though (?)
@@ -389,6 +391,9 @@ function progress (task) {
   }
 }
 
+const renderer = program.verbose
+  ? verboseRenderer
+  : updateRenderer
 const main = new Listr([
   {
     title: 'Logging in to plug.dj',
@@ -437,7 +442,7 @@ const main = new Listr([
         .then(() => outputFile('version', {}, `window._v = '${_v}';`))
         .then(() => console.log(`v${_v} done`))
   }
-], { renderer: updateRenderer })
+], { renderer: renderer })
 
 main.run().catch((e) => {
   setImmediate(() => {
