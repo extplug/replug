@@ -182,12 +182,13 @@ async function remapModuleNames (modules, mapping, progress) {
       if (dep.value in mapping) {
         const originalName = dep.value
         dep.value = mapping[originalName]
-        dep.trailingComments = [
-          { type: 'Block', value: ` was ${originalName}` }
+        dep.extra.raw = JSON.stringify(dep.value)
+        dep.comments = [
+          { type: 'Block', value: ` was ${originalName}`, trailing: true }
         ]
       } else {
-        dep.trailingComments = [
-          { type: 'Block', value: ' Unknown module' }
+        dep.comments = [
+          { type: 'Block', value: ' Unknown module', trailing: true }
         ]
       }
 
@@ -327,15 +328,16 @@ function extract (modules, mapping, progress) {
     const mod = modules[name]
 
     const moduleIdentifier = t.stringLiteral(name)
-    moduleIdentifier.raw = JSON.stringify(name)
     if (name in mapping) {
+      moduleIdentifier.raw = JSON.stringify(mapping[name])
       moduleIdentifier.value = mapping[name]
-      moduleIdentifier.trailingComments = [
-        { type: 'Block', value: ` was ${name}` }
+      moduleIdentifier.comments = [
+        { type: 'Block', value: ` was ${name}`, trailing: true }
       ]
     } else {
-      moduleIdentifier.trailingComments = [
-        { type: 'Block', value: ' Unknown module' }
+      moduleIdentifier.raw = JSON.stringify(name)
+      moduleIdentifier.comments = [
+        { type: 'Block', value: ' Unknown module', trailing: true }
       ]
     }
 
