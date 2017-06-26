@@ -3,40 +3,44 @@
 A messy script that spews as-readable-as-computerly-possible versions of plug.dj
 modules into a directory.
 
-## installing
+## usage
 
-For a globally installed CLI:
+The easiest way to use replug is with [npx](https://npmjs.com/package/npx):
 
-1. `npm i -g replug`
+1. `npx replug`
 
-Or for source:
+Alternatively, install the CLI globally (you'll have to update manually from time to time):
+
+1. `npm install -g replug`
+1. `replug`
+
+Or run it from source:
 
 1. `git clone https://github.com/ExtPlug/replug.git`
 1. `cd replug`
 1. `npm install`
+1. `./index.js`
 
-## actually doing things
+There are some command-line options:
 
-    Options:
-
-      -h, --help            output usage information
-      -V, --version         output the version number
-      -m, --mapping [file]  File containing the mapping JSON (optional, it's auto-generated if no file is given)
-      -o, --out [dir]       Output directory [out/]
-      -v, --verbose         Use verbose output instead of bullet list
+    -h, --help            output usage information
+    -V, --version         output the version number
+    -m, --mapping [file]  File containing the mapping JSON (optional, it's auto-generated if no file is given)
+    -o, --out [dir]       Output directory [out/]
+    -v, --verbose         Use verbose output instead of bullet list
 
 ### examples
 
 Dump output in `out/`:
 
 ```
-replug
+npx replug
 ```
 
 Output in `output-directory/`:
 
 ```
-replug --out output-directory
+npx replug --out output-directory
 ```
 
 ## Licence
