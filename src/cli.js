@@ -7,7 +7,6 @@ const chalk = require('chalk')
 const Promise = require('bluebird')
 const program = require('commander')
 const { parse } = require('babylon')
-const { File } = require('babel-core')
 const traverse = require('babel-traverse').default
 const generate = require('prettier').__debug.formatAST
 const t = require('babel-types')
@@ -99,23 +98,15 @@ function parseModules (str, progress) {
         const tokens = sliceTokens(ast.tokens, node)
         const code = str.slice(node.start, node.end)
 
-        const comments = []
-        const program = t.file(
+        const file = t.file(
           t.program([ t.expressionStatement(factory) ]),
-          comments,
-          tokens
-        )
+          [], [])
 
-        const file = new File({
-          options: {},
-          passes: []
-        })
-        file.addAst(program)
         progress(name.value)
         modules[name.value] = {
           deps,
-          file,
           code,
+          file,
           ast: factory
         }
       }
@@ -143,7 +134,7 @@ async function cleanModules (modules, progress) {
   for (let i = 0; i < names.length; i += 1) {
     const name = names[i]
 
-    cleanAst(modules[name].file.ast)
+    cleanAst(modules[name].file)
 
     await progress(i + 1, names.length)
   }
@@ -217,7 +208,7 @@ async function remapModuleNames (modules, mapping, progress) {
       })
     }
 
-    processRenames(modules[name].file.ast, renames)
+    processRenames(modules[name].file, renames)
 
     await progress(index + 1, names.length)
   }
