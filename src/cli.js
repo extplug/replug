@@ -69,18 +69,6 @@ function variableNameFor (dep, mapping) {
        : dep
 }
 
-function sliceTokens (tokens, loc) {
-  let start = 0
-  while (tokens[start].start < loc.start) {
-    start++
-  }
-  let end = start
-  while (tokens[end].end < loc.end) {
-    end++
-  }
-  return tokens.slice(start, end)
-}
-
 function parseModules (str, progress) {
   const ast = parse(str)
   const modules = {}
@@ -95,7 +83,6 @@ function parseModules (str, progress) {
           deps = []
         }
 
-        const tokens = sliceTokens(ast.tokens, node)
         const code = str.slice(node.start, node.end)
 
         const file = t.file(
