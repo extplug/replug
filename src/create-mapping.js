@@ -39,16 +39,28 @@ function waitForRequireJs (window) {
         // usually throws an error somewhere. instead we override the callback
         // with an empty function :D
         const orig = window.require
-        window.require = function require (arg) {
+        window.require = Object.assign((arg, ...rest) => {
           if (Array.isArray(arg) && arg[0].indexOf('http') !== 0) {
             return orig(arg, () => {
               /* ... */
               resolve()
             })
           }
-          return orig.apply(window, arguments)
-        }
-        Object.assign(window.require, orig)
+          return orig(arg, ...rest)
+        }, orig)
+        const origDefine = window.define
+        window.define = Object.assign((name, dependencies, ...args) => {
+          if (name === 'async') {
+            return origDefine('async', {
+              load: (name, parent, cb) => cb({})
+            })
+          }
+          if (Array.isArray(dependencies)) {
+            dependencies = dependencies.map((dep) => dep === 'recaptcha' ? 'module' : dep)
+          }
+          return origDefine(name, dependencies, ...args)
+        }, origDefine)
+        const defaultContext = window.require.s.contexts._
         clearInterval(intv)
       }
     }
