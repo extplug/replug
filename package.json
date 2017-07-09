@@ -27,7 +27,7 @@
     "mkdirp-then": "^1.1.0",
     "mz": "^2.1.0",
     "plug-login": "^1.0.1",
-    "plug-modules": "^5.0.0",
+    "plug-modules": "^5.1.0",
     "prettier": "^1.4.4"
   },
   "devDependencies": {
