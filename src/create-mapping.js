@@ -52,7 +52,7 @@ function waitForRequireJs (window) {
         window.define = Object.assign((name, dependencies, ...args) => {
           if (name === 'async') {
             return origDefine('async', {
-              load: (name, parent, cb) => cb({})
+              load: (name, parent, onload) => onload({})
             })
           }
           if (Array.isArray(dependencies)) {
@@ -60,7 +60,6 @@ function waitForRequireJs (window) {
           }
           return origDefine(name, dependencies, ...args)
         }, origDefine)
-        const defaultContext = window.require.s.contexts._
         clearInterval(intv)
       }
     }
