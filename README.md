@@ -14,13 +14,6 @@ Alternatively, install the CLI globally (you'll have to update manually from tim
 1. `npm install -g replug`
 1. `replug`
 
-Or run it from source:
-
-1. `git clone https://github.com/ExtPlug/replug.git`
-1. `cd replug`
-1. `npm install`
-1. `./index.js`
-
 There are some command-line options:
 
     -h, --help            output usage information
