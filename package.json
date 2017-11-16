@@ -18,7 +18,7 @@
     "browser-resolve": "^1.11.2",
     "chalk": "^2.0.1",
     "commander": "^2.11.0",
-    "got": "^7.1.0",
+    "got": "^8.0.0",
     "is-async-supported": "^1.2.0",
     "jsdom": "^11.1.0",
     "listr": "^0.13.0",
