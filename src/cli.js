@@ -31,26 +31,13 @@ program
   .option('-v, --verbose', 'Use verbose output instead of bullet list', false)
   .parse(process.argv)
 
-function fetchAppFile (url, progress) {
-  return new Promise((resolve, reject) => {
-    let contents = ''
-
-    const stream = got.stream(url)
-    stream.on('response', (res) => {
-      const size = parseInt(res.headers['content-length'], 10)
-      progress(0, size)
-      stream.on('data', (chunk) => {
-        contents += chunk.toString('utf8')
-        progress(contents.length, size)
-      })
-    })
-
-    stream.on('error', reject)
-    stream.on('end', () => {
-      progress(contents.length, contents.length)
-      resolve(contents)
-    })
+async function fetchAppFile (url, progress) {
+  const response = got(url)
+  response.on('downloadProgress', ({ transferred, total }) => {
+    progress(transferred, total)
   })
+  const { body } = await response
+  return body
 }
 
 function variableNameFor (dep, mapping) {
