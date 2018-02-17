@@ -10,26 +10,26 @@
   },
   "dependencies": {
     "babel-plugin-transform-beautifier": "^0.1.0",
-    "babel-traverse": "^7.0.0-alpha.12",
-    "babel-types": "^7.0.0-alpha.12",
-    "babylon": "^7.0.0-beta.16",
-    "bluebird": "^3.3.5",
+    "babel-traverse": "^7.0.0-beta.3",
+    "babel-types": "^7.0.0-beta.3",
+    "babylon": "^7.0.0-beta.40",
+    "bluebird": "^3.5.1",
     "browser-resolve": "^1.11.2",
-    "chalk": "^2.0.1",
-    "commander": "^2.11.0",
+    "chalk": "^2.3.1",
+    "commander": "^2.14.1",
     "got": "^8.1.0",
-    "jsdom": "^11.1.0",
+    "jsdom": "^11.6.2",
     "listr": "^0.13.0",
     "listr-update-renderer": "^0.4.0",
-    "listr-verbose-renderer": "^0.4.0",
+    "listr-verbose-renderer": "^0.4.1",
     "mkdirp-then": "^1.1.0",
-    "mz": "^2.1.0",
-    "plug-login": "^1.0.1",
-    "plug-modules": "^5.1.0",
-    "prettier": "^1.5.2"
+    "mz": "^2.7.0",
+    "plug-login": "^1.2.0",
+    "plug-modules": "^5.2.0",
+    "prettier": "^1.10.2"
   },
   "devDependencies": {
-    "standard": "^10.0.0"
+    "standard": "^10.0.3"
   },
   "scripts": {
     "test": "standard src/*.js"
