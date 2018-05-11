@@ -19,7 +19,7 @@
     "commander": "^2.14.1",
     "got": "^8.1.0",
     "jsdom": "^11.6.2",
-    "listr": "^0.13.0",
+    "listr": "^0.14.1",
     "listr-update-renderer": "^0.4.0",
     "listr-verbose-renderer": "^0.4.1",
     "mkdirp-then": "^1.1.0",
